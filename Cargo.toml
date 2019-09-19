@@ -1,0 +1,9 @@
+[package]
+name = "aeron-driver-sys"
+version = "0.1.0"
+authors = ["Bradlee Speice <bradlee@speice.io>"]
+edition = "2018"
+links = "aeron-driver"
+build = "build.rs"
+
+[dependencies]
