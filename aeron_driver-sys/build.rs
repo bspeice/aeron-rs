@@ -1,12 +1,12 @@
 use cmake::Config;
 
 use std::env;
-use std::path::{Path, PathBuf};
 use std::fs::canonicalize;
+use std::path::{Path, PathBuf};
 
 pub enum LinkType {
     Dynamic,
-    Static
+    Static,
 }
 
 impl LinkType {
@@ -21,14 +21,14 @@ impl LinkType {
     fn link_lib(&self) -> &'static str {
         match self {
             LinkType::Dynamic => "dylib=",
-            LinkType::Static => "static="
+            LinkType::Static => "static=",
         }
     }
 
     fn target_name(&self) -> &'static str {
         match self {
             LinkType::Dynamic => "aeron_driver",
-            LinkType::Static => "aeron_driver_static"
+            LinkType::Static => "aeron_driver_static",
         }
     }
 }
@@ -42,11 +42,18 @@ pub fn main() {
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
 
     let link_type = LinkType::detect();
-    println!("cargo:rustc-link-lib={}{}", link_type.link_lib(), link_type.target_name());
+    println!(
+        "cargo:rustc-link-lib={}{}",
+        link_type.link_lib(),
+        link_type.target_name()
+    );
     let lib_dir = Config::new(&aeron_path)
         .build_target(link_type.target_name())
         .build();
-    println!("cargo:rustc-link-search=native={}", lib_dir.join("build/lib").display());
+    println!(
+        "cargo:rustc-link-search=native={}",
+        lib_dir.join("build/lib").display()
+    );
 
     println!("cargo:include={}", header_path.display());
     let bindings = bindgen::Builder::default()
