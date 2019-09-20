@@ -11,6 +11,7 @@ build = "build.rs"
 [build-dependencies]
 bindgen = "0.51"
 cmake = "0.1"
+dunce = "1.0.0"
 
 [features]
 static = []

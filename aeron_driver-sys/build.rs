@@ -1,7 +1,6 @@
 use cmake::Config;
-
+use dunce::canonicalize;
 use std::env;
-use std::fs::canonicalize;
 use std::path::{Path, PathBuf};
 
 pub enum LinkType {
