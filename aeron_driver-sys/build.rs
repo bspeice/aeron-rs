@@ -54,10 +54,7 @@ pub fn main() {
     // For Linux/OSX, it's just build/lib
     // For Windows, it's build/lib/{profile}
     let lib_dir = lib_output_dir(&cmake_output);
-    println!(
-        "cargo:rustc-link-search=native={}",
-        lib_dir.display()
-    );
+    println!("cargo:rustc-link-search=native={}", lib_dir.display());
 
     println!("cargo:include={}", header_path.display());
     let bindings = bindgen::Builder::default()
