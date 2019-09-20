@@ -1,0 +1,24 @@
+language: rust
+rust:
+  - stable
+  - beta
+  - nightly
+os:
+  - linux
+  - osx
+  - windows
+
+cache:
+  - cargo
+
+script:
+  - cd aeron_driver-sys
+  - cargo test
+  - cargo test --release
+  - cargo test --features "static"
+
+  - cd ..
+  - cargo test
+  - cargo test --release
+  - cargo fmt --all -- --check
+  - cargo clippy --all
