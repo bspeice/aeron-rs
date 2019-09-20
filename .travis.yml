@@ -11,6 +11,11 @@ os:
 cache:
   - cargo
 
+before_script:
+  - rustup update
+  - rustup component add clippy
+  - rustup component add rustfmt
+
 script:
   - cd aeron_driver-sys
   - cargo test
@@ -20,5 +25,5 @@ script:
   - cd ..
   - cargo test
   - cargo test --release
-  - cargo fmt --all -- --check
   - cargo clippy --all
+  - cargo fmt --all -- --check
