@@ -1,0 +1,3 @@
+[submodule "aeron_driver-sys/aeron"]
+	path = aeron_driver-sys/aeron
+	url = https://github.com/real-logic/aeron
