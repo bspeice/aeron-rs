@@ -1,0 +1,16 @@
+[package]
+name = "aeron_driver-sys"
+version = "0.1.0+1.21.2"
+authors = ["Bradlee Speice <bradlee@speice.io>"]
+edition = "2018"
+links = "aeron_driver"
+build = "build.rs"
+
+[dependencies]
+
+[build-dependencies]
+bindgen = "0.51"
+cmake = "0.1"
+
+[features]
+static = []

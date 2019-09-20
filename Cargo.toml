@@ -1,16 +1,10 @@
 [package]
-name = "libaeron_driver-sys"
-version = "0.1.0+1.21.2"
+name = "aeron-rs"
+version = "0.1.0"
 authors = ["Bradlee Speice <bradlee@speice.io>"]
 edition = "2018"
-links = "aeron_driver"
-build = "build.rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-
-[build-dependencies]
-bindgen = "0.51"
-cmake = "0.1"
-
-[features]
-static = []
+aeron_driver-sys = { path = "./aeron_driver-sys" }
