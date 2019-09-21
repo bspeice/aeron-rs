@@ -53,8 +53,18 @@ pub fn main() {
     // Trying to figure out the final path is a bit weird;
     // For Linux/OSX, it's just build/lib
     // For Windows, it's build/lib/{profile}
-    let lib_dir = lib_output_dir(&cmake_output);
-    println!("cargo:rustc-link-search=native={}", lib_dir.display());
+    let base_lib_dir = cmake_output.join("build").join("lib");
+    println!("cargo:rustc-link-search=native={}", base_lib_dir.display());
+    // Because the `cmake_output` path is different for debug/release, we're not worried
+    // about accidentally linking in the wrong library
+    println!(
+        "cargo:rustc-link-search=native={}",
+        base_lib_dir.join("Debug").display()
+    );
+    println!(
+        "cargo:rustc-link-search=native={}",
+        base_lib_dir.join("Release").display()
+    );
 
     println!("cargo:include={}", header_path.display());
     let bindings = bindgen::Builder::default()
@@ -66,16 +76,4 @@ pub fn main() {
     bindings
         .write_to_file(out_path.join("bindings.rs"))
         .expect("Couldn't write bindings!");
-}
-
-fn lib_output_dir(cmake_dir: &PathBuf) -> PathBuf {
-    if cfg!(target_os = "windows") {
-        if cmake_dir.join("build/lib/Debug").exists() {
-            cmake_dir.join("build/lib/Debug")
-        } else {
-            cmake_dir.join("build/lib/Release")
-        }
-    } else {
-        cmake_dir.join("build/lib")
-    }
 }
