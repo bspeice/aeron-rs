@@ -46,12 +46,36 @@ pub fn main() {
         link_type.link_lib(),
         link_type.target_name()
     );
-    let lib_dir = Config::new(&aeron_path)
+    let cmake_output = Config::new(&aeron_path)
         .build_target(link_type.target_name())
         .build();
+
+    // Trying to figure out the final path is a bit weird;
+    // For Linux/OSX, it's just build/lib
+    // For Windows, the .lib file is in build/lib/{profile}, but the DLL
+    // is shipped in build/binaries/{profile}
+    let base_lib_dir = cmake_output.join("build");
     println!(
         "cargo:rustc-link-search=native={}",
-        lib_dir.join("build/lib").display()
+        base_lib_dir.join("lib").display()
+    );
+    // Because the `cmake_output` path is different for debug/release, we're not worried
+    // about accidentally linking in the wrong library
+    println!(
+        "cargo:rustc-link-search=native={}",
+        base_lib_dir.join("lib/Debug").display()
+    );
+    println!(
+        "cargo:rustc-link-search=native={}",
+        base_lib_dir.join("binaries/Debug").display()
+    );
+    println!(
+        "cargo:rustc-link-search=native={}",
+        base_lib_dir.join("lib/Release").display()
+    );
+    println!(
+        "cargo:rustc-link-search=native={}",
+        base_lib_dir.join("binaries/Release").display()
     );
 
     println!("cargo:include={}", header_path.display());
