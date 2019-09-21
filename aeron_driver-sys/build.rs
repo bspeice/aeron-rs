@@ -55,7 +55,10 @@ pub fn main() {
     // For Windows, the .lib file is in build/lib/{profile}, but the DLL
     // is shipped in build/binaries/{profile}
     let base_lib_dir = cmake_output.join("build");
-    println!("cargo:rustc-link-search=native={}", base_lib_dir.join("lib").display());
+    println!(
+        "cargo:rustc-link-search=native={}",
+        base_lib_dir.join("lib").display()
+    );
     // Because the `cmake_output` path is different for debug/release, we're not worried
     // about accidentally linking in the wrong library
     println!(
