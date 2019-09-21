@@ -55,8 +55,8 @@ pub fn main() {
                 println!("cargo:rustc-link-lib=shell32");
                 println!("cargo:rustc-link-lib=iphlpapi");
             }
-        },
-        _ => ()
+        }
+        _ => (),
     };
 
     let cmake_output = Config::new(&aeron_path)
