@@ -18,7 +18,7 @@ script:
   - cd aeron_driver-sys
   - cargo test
   - cargo test --release
-  #- cargo test --features "static"
+  - cargo test --features "static"
 
   - cd ..
   - cargo test
