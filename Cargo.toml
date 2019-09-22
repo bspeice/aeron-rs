@@ -13,3 +13,7 @@ maintenance = { status = "actively-developed" }
 
 [dependencies]
 aeron_driver-sys = { path = "./aeron_driver-sys" }
+
+[dev-dependencies]
+clap = "2.33"
+ctrlc = "3.1.3"
