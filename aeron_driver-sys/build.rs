@@ -95,6 +95,8 @@ pub fn main() {
     let bindings = bindgen::Builder::default()
         .clang_arg(&format!("-I{}", header_path.display()))
         .header("bindings.h")
+        .whitelist_function("aeron_.*")
+        .whitelist_type("aeron_.*")
         .generate()
         .expect("Unable to generate aeron_driver bindings");
 

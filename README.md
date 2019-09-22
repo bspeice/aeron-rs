@@ -2,4 +2,8 @@
 
 ![](https://img.shields.io/travis/bspeice/aeron-rs?style=flat-square)
 
-A Rust port of the [Aeron client](https://github.com/real-logic/Aeron).
+<!-- cargo-sync-readme start -->
+
+[Aeron](https://github.com/real-logic/aeron) client for Rust
+
+<!-- cargo-sync-readme end -->
