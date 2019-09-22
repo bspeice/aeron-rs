@@ -6,6 +6,8 @@ edition = "2018"
 repository = "https://github.com/bspeice/aeron-rs"
 readme = "README.md"
 license = "Apache-2.0"
+
+[badges]
 travis-ci = { repository = "bspeice/aeron-rs", branch = "master" }
 maintenance = { status = "actively-developed" }
 
