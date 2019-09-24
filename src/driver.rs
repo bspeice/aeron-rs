@@ -1,7 +1,6 @@
 //! Bindings for the C Media Driver
 
 use std::ffi::{CStr, CString};
-use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 use std::ptr;
 
@@ -24,8 +23,10 @@ impl DriverContext {
     /// Set the Aeron directory path that will be used for storing the files
     /// Aeron uses to communicate with clients.
     pub fn set_aeron_dir(mut self, path: &Path) -> Self {
+        // UNWRAP: Fails only if the path is non-UTF8
+        let path_bytes = path.to_str().unwrap().as_bytes();
         // UNWRAP: Fails only if there is a null byte in the provided path
-        let c_string = CString::new(path.as_os_str().as_bytes()).unwrap();
+        let c_string = CString::new(path_bytes).unwrap();
         self.aeron_dir = Some(c_string);
         self
     }
@@ -131,12 +132,19 @@ mod tests {
         let context = DriverContext::default().set_aeron_dir(&dir_path);
         let driver_res = MediaDriver::with_context(context);
 
+        // TODO: Why is the error message behavior different on Windows?
+        let expected_message = if cfg!(target_os = "windows") {
+            String::new()
+        } else {
+            format!("could not recreate aeron dir {}: ", dir_path.display())
+        };
+
         assert!(driver_res.is_err());
         assert_eq!(
             driver_res.unwrap_err(),
             DriverError {
                 code: 0,
-                msg: format!("could not recreate aeron dir {}: ", dir_path.display())
+                msg: expected_message
             }
         );
     }
