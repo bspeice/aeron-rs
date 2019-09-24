@@ -79,6 +79,17 @@ impl MediaDriver {
     pub fn new() -> Result<Self, DriverError> {
         Self::with_context(DriverContext::default())
     }
+
+    /// Retrieve the C library version in (major, minor, patch) format
+    pub fn driver_version() -> (u32, u32, u32) {
+        unsafe {
+            (
+                aeron_version_major() as u32,
+                aeron_version_minor() as u32,
+                aeron_version_patch() as u32,
+            )
+        }
+    }
 }
 
 impl Drop for MediaDriver {
