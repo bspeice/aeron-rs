@@ -12,7 +12,7 @@ impl ClientContext {
     fn get_user_name() -> String {
         env::var("USER")
             .or_else(|_| env::var("USERNAME"))
-            .unwrap_or("default".to_string())
+            .unwrap_or_else(|_| "default".to_string())
     }
 
     /// Get the default folder used by the Media Driver to interact with clients
