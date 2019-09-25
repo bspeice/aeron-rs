@@ -4,8 +4,50 @@
 #![allow(clippy::all)]
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
+/// Construct a C-compatible enum out of a set of constants.
+/// Commonly used for types in Aeron that have fixed values via `#define`,
+/// but aren't actually enums (e.g. AERON_COMMAND_.*, AERON_ERROR_CODE_.*).
+/// Behavior is ultimately very similar to `num::FromPrimitive`.
+macro_rules! define_enum {
+    ($(#[$outer:meta])*, $name:ident, [$(($left:ident, $right:expr)),*]) => {
+        #[repr(u32)]
+        #[derive(Debug, PartialEq)]
+        $(#[$outer])*
+        pub enum $name {
+            $($left = $right),*
+        }
+
+        impl ::std::convert::TryFrom<u32> for $name {
+            type Error = ();
+            fn try_from(val: u32) -> Result<$name, ()> {
+                match val {
+                    $(v if v == $name::$left as u32 => Ok($name::$left)),*,
+                    _ => Err(())
+                }
+            }
+        }
+    }
+}
+
+define_enum!(
+    #[doc = "Command codes used when interacting with the Media Driver"],
+    AeronCommand, [
+        (AddPublication, AERON_COMMAND_ADD_PUBLICATION),
+        (RemovePublication, AERON_COMMAND_REMOVE_PUBLICATION)
+    ]
+);
+
+define_enum!(
+    #[doc = "Command codes used when interacting with the Media Driver"],
+    AeronErrorCode, [
+        (GenericError, AERON_ERROR_CODE_GENERIC_ERROR)
+    ]
+);
+
 #[cfg(test)]
 mod tests {
+    use crate::*;
+    use std::convert::TryInto;
 
     #[test]
     fn version_check() {
@@ -15,5 +57,13 @@ mod tests {
         assert_eq!(major, 1);
         assert_eq!(minor, 21);
         assert_eq!(patch, 2);
+    }
+
+    #[test]
+    fn define_enum_try() {
+        assert_eq!(
+            Ok(AeronCommand::AddPublication),
+            AERON_COMMAND_ADD_PUBLICATION.try_into()
+        );
     }
 }

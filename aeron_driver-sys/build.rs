@@ -97,6 +97,7 @@ pub fn main() {
         .header("bindings.h")
         .whitelist_function("aeron_.*")
         .whitelist_type("aeron_.*")
+        .whitelist_var("AERON_.*")
         .constified_enum_module("aeron_.*_enum")
         .generate()
         .expect("Unable to generate aeron_driver bindings");
