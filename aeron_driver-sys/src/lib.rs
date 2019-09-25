@@ -38,8 +38,8 @@ define_enum!(
 );
 
 define_enum!(
-    #[doc = "Command codes used when interacting with the Media Driver"],
-    AeronErrorCode, [
+    #[doc = "Error codes used by the Media Driver control protocol"],
+    AeronControlErrorCode, [
         (GenericError, AERON_ERROR_CODE_GENERIC_ERROR)
     ]
 );
