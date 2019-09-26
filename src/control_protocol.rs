@@ -8,10 +8,10 @@ use aeron_driver_sys::*;
 macro_rules! define_enum {
     (
         $(#[$outer:meta])*
-        $name:ident, [$(
+        pub enum $name:ident {$(
             $(#[$inner:meta]),*
-            $left:ident = $right:ident
-        ),+]
+            $left:ident = $right:ident,
+        )+}
     ) => {
         #[repr(u32)]
         #[derive(Debug, PartialEq)]
@@ -35,13 +35,12 @@ macro_rules! define_enum {
 
 define_enum!(
     #[doc = "Commands sent from clients to the Media Driver"]
-    ClientCommand,
-    [
+    pub enum ClientCommand {
         #[doc = "Client declaring a new publication"]
         AddPublication = AERON_COMMAND_ADD_PUBLICATION,
         #[doc = "Client removing a publication"]
-        RemovePublication = AERON_COMMAND_REMOVE_PUBLICATION
-    ]
+        RemovePublication = AERON_COMMAND_REMOVE_PUBLICATION,
+    }
 );
 
 #[cfg(test)]
