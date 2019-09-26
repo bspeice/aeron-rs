@@ -95,10 +95,10 @@ impl MediaDriver {
 
 impl Drop for MediaDriver {
     fn drop(&mut self) {
-        if self.c_driver.is_null() {
+        if !self.c_driver.is_null() {
             unsafe { aeron_op!(aeron_driver_close(self.c_driver)) }.unwrap();
         }
-        if self.c_context.is_null() {
+        if !self.c_context.is_null() {
             unsafe { aeron_op!(aeron_driver_context_close(self.c_context)) }.unwrap();
         }
     }
