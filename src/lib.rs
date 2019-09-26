@@ -2,4 +2,5 @@
 #![deny(missing_docs)]
 
 pub mod client;
+pub mod control_protocol;
 pub mod driver;
