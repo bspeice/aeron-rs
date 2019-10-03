@@ -60,12 +60,15 @@ pub struct MetaDataDefinition {
     _pid: i64,
 }
 
-/// Version code for the Aeron CnC file format
+/// Version code for the Aeron CnC file format that this client is compatible with
 pub const CNC_VERSION: i32 = crate::sematic_version_compose(0, 0, 16);
+
+/// Filename for the CnC file located in the Aeron directory
+pub const CNC_FILE: &str = "cnc.dat";
 
 #[cfg(test)]
 mod tests {
-    use crate::client::cnc_descriptor::{MetaDataDefinition, CNC_VERSION};
+    use crate::client::cnc_descriptor::{MetaDataDefinition, CNC_FILE, CNC_VERSION};
     use crate::driver::{DriverContext, MediaDriver};
     use memmap::MmapOptions;
     use std::fs::File;
@@ -81,7 +84,7 @@ mod tests {
         let _driver = MediaDriver::with_context(context).unwrap();
 
         // Open the CnC location
-        let cnc_path = dir_path.join("cnc.dat");
+        let cnc_path = dir_path.join(CNC_FILE);
         let cnc_file = File::open(&cnc_path).expect("Unable to open CnC file");
         let mmap = unsafe {
             MmapOptions::default()
