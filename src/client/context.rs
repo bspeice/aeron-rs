@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 /// Context used to initialize the Aeron client
 pub struct ClientContext {
-    aeron_dir: PathBuf,
+    _aeron_dir: PathBuf,
 }
 
 impl ClientContext {
@@ -31,7 +31,7 @@ impl ClientContext {
 impl Default for ClientContext {
     fn default() -> Self {
         ClientContext {
-            aeron_dir: ClientContext::default_aeron_path(),
+            _aeron_dir: ClientContext::default_aeron_path(),
         }
     }
 }
