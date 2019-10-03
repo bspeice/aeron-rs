@@ -6,11 +6,6 @@ os:
   - osx
   - windows
 
-addons:
-  apt:
-    packages:
-      - uuid-dev
-
 cache:
   - cargo
 

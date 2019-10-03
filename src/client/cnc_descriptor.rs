@@ -60,7 +60,7 @@ pub struct MetaDataDefinition {
     _pid: i64,
 }
 
-/// Version code for the Aeron CnC file format that this client is compatible with
+/// Version code for the Aeron CnC file format
 pub const CNC_VERSION: i32 = crate::sematic_version_compose(0, 0, 16);
 
 /// Filename for the CnC file located in the Aeron directory
