@@ -60,9 +60,12 @@ pub struct MetaDataDefinition {
     _pid: i64,
 }
 
+/// Version code for the Aeron CnC file format
+pub const CNC_VERSION: i32 = crate::sematic_version_compose(0, 0, 16);
+
 #[cfg(test)]
 mod tests {
-    use crate::client::cnc_descriptor::MetaDataDefinition;
+    use crate::client::cnc_descriptor::{MetaDataDefinition, CNC_VERSION};
     use crate::driver::{DriverContext, MediaDriver};
     use memmap::MmapOptions;
     use std::fs::File;
@@ -87,6 +90,6 @@ mod tests {
         };
 
         let metadata: &MetaDataDefinition = unsafe { &*(mmap.as_ptr().cast()) };
-        assert_eq!(metadata.cnc_version, 16);
+        assert_eq!(metadata.cnc_version, CNC_VERSION);
     }
 }
