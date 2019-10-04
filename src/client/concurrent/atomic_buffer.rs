@@ -80,4 +80,13 @@ mod tests {
         assert_eq!(atomic_buf.get_and_add_i64(0, 1), Ok(16));
         assert_eq!(atomic_buf.get_and_add_i64(0, 0), Ok(17));
     }
+
+    #[test]
+    fn atomic_i64_increment_offset() {
+        let mut buf = [0, 16, 0, 0, 0, 0, 0, 0, 0];
+
+        let atomic_buf = AtomicBuffer::wrap(&mut buf[..]);
+        assert_eq!(atomic_buf.get_and_add_i64(1, 1), Ok(16));
+        assert_eq!(atomic_buf.get_and_add_i64(1, 0), Ok(17));
+    }
 }
