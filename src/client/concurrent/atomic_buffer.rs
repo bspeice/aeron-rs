@@ -26,7 +26,7 @@ impl<'a> AtomicBuffer<'a> {
     }
 
     fn bounds_check(&self, offset: IndexT, size: usize) -> Result<()> {
-        if self.buffer.len() - offset as usize > size {
+        if self.buffer.len() - (offset as usize) < size {
             Err(AeronError::OutOfBounds)
         } else {
             Ok(())
@@ -51,6 +51,7 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
 
     use crate::client::concurrent::atomic_buffer::AtomicBuffer;
+    use crate::util::AeronError;
 
     #[test]
     fn mmap_to_atomic() {
@@ -88,5 +89,21 @@ mod tests {
         let atomic_buf = AtomicBuffer::wrap(&mut buf[..]);
         assert_eq!(atomic_buf.get_and_add_i64(1, 1), Ok(16));
         assert_eq!(atomic_buf.get_and_add_i64(1, 0), Ok(17));
+    }
+
+    #[test]
+    fn out_of_bounds() {
+        let mut buf = [16, 0, 0, 0, 0, 0, 0];
+
+        let atomic_buf = AtomicBuffer::wrap(&mut buf);
+        assert_eq!(atomic_buf.get_and_add_i64(0, 0), Err(AeronError::OutOfBounds));
+    }
+
+    #[test]
+    fn out_of_bounds_offset() {
+        let mut buf = [16, 0, 0, 0, 0, 0, 0, 0];
+
+        let atomic_buf = AtomicBuffer::wrap(&mut buf);
+        assert_eq!(atomic_buf.get_and_add_i64(1, 0), Err(AeronError::OutOfBounds));
     }
 }
