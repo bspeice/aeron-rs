@@ -6,8 +6,6 @@ include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 #[cfg(test)]
 mod tests {
-    use crate::*;
-    use std::convert::TryInto;
 
     #[test]
     fn version_check() {

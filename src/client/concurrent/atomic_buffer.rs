@@ -96,7 +96,10 @@ mod tests {
         let mut buf = [16, 0, 0, 0, 0, 0, 0];
 
         let atomic_buf = AtomicBuffer::wrap(&mut buf);
-        assert_eq!(atomic_buf.get_and_add_i64(0, 0), Err(AeronError::OutOfBounds));
+        assert_eq!(
+            atomic_buf.get_and_add_i64(0, 0),
+            Err(AeronError::OutOfBounds)
+        );
     }
 
     #[test]
@@ -104,6 +107,9 @@ mod tests {
         let mut buf = [16, 0, 0, 0, 0, 0, 0, 0];
 
         let atomic_buf = AtomicBuffer::wrap(&mut buf);
-        assert_eq!(atomic_buf.get_and_add_i64(1, 0), Err(AeronError::OutOfBounds));
+        assert_eq!(
+            atomic_buf.get_and_add_i64(1, 0),
+            Err(AeronError::OutOfBounds)
+        );
     }
 }
