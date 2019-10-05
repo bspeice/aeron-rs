@@ -3,6 +3,7 @@
 
 /// Helper type to indicate indexing operations in Aeron, Synonymous with the
 /// Aeron C++ `index_t` type. Used to imitate the Java API.
+// QUESTION: Can this just be updated to be `usize` in Rust?
 pub type IndexT = i32;
 
 /// Helper method for quick verification that `IndexT` is a positive power of two
@@ -21,6 +22,8 @@ pub enum AeronError {
     IllegalArgument,
     /// Indication that a memory access would exceed the allowable bounds
     OutOfBounds,
+    /// Indication that a buffer operation could not complete because of space constraints
+    InsufficientCapacity,
 }
 
 /// Result type for operations in the Aeron client
