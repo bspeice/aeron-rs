@@ -47,7 +47,7 @@ impl<'a> AtomicBuffer<'a> {
 
     fn overlay_volatile<T>(&self, offset: IndexT) -> Result<T>
     where
-        T: Copy
+        T: Copy,
     {
         self.bounds_check::<T>(offset).map(|_| {
             let offset_ptr = unsafe { self.buffer.as_ptr().offset(offset as isize) };
@@ -182,10 +182,7 @@ mod tests {
         let mut atomic_buf = AtomicBuffer::wrap(&mut buf);
 
         atomic_buf.put_i64_ordered(0, 12).unwrap();
-        assert_eq!(
-            atomic_buf.get_i64_volatile(0),
-            Ok(12)
-        )
+        assert_eq!(atomic_buf.get_i64_volatile(0), Ok(12))
     }
 
     #[test]
@@ -195,17 +192,8 @@ mod tests {
 
         atomic_buf.get_and_add_i64(0, 1).unwrap();
 
-        assert_eq!(
-            atomic_buf.compare_and_set_i64(0, 0, 1),
-            Ok(false)
-        );
-        assert_eq!(
-            atomic_buf.compare_and_set_i64(0, 1, 2),
-            Ok(true)
-        );
-        assert_eq!(
-            atomic_buf.get_i64_volatile(0),
-            Ok(2)
-        );
+        assert_eq!(atomic_buf.compare_and_set_i64(0, 0, 1), Ok(false));
+        assert_eq!(atomic_buf.compare_and_set_i64(0, 1, 2), Ok(true));
+        assert_eq!(atomic_buf.get_i64_volatile(0), Ok(2));
     }
 }

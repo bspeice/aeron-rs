@@ -216,7 +216,9 @@ mod tests {
 
         ring_buf.claim_capacity(16).unwrap();
         assert_eq!(
-            ring_buf.buffer.get_i64_volatile(ring_buf.tail_position_index),
+            ring_buf
+                .buffer
+                .get_i64_volatile(ring_buf.tail_position_index),
             Ok(16)
         );
 
