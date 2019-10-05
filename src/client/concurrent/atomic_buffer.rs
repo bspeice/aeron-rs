@@ -25,23 +25,24 @@ impl<'a> AtomicBuffer<'a> {
         AtomicBuffer { buffer }
     }
 
-    fn bounds_check(&self, offset: IndexT, size: usize) -> Result<()> {
-        if self.buffer.len() - (offset as usize) < size {
+    #[allow(clippy::cast_ptr_alignment)]
+    fn overlay<T>(&self, offset: IndexT) -> Result<&T>
+    where
+        T: Sized,
+    {
+        if offset < 0 || self.buffer.len() - (offset as usize) < size_of::<T>() {
             Err(AeronError::OutOfBounds)
         } else {
-            Ok(())
+            let offset_ptr = unsafe { self.buffer.as_ptr().offset(offset as isize) };
+            let t: &T = unsafe { &*(offset_ptr as *const T) };
+            Ok(t)
         }
     }
 
     /// Atomically fetch the current value at an offset, and increment by delta
-    #[allow(clippy::cast_ptr_alignment)]
     pub fn get_and_add_i64(&self, offset: IndexT, delta: i64) -> Result<i64> {
-        self.bounds_check(offset, size_of::<AtomicI64>()).map(|_| {
-            let a: &AtomicI64 =
-                unsafe { &*(self.buffer.as_ptr().offset(offset as isize) as *const AtomicI64) };
-            println!("AtomicI64: {:p}", a);
-            a.fetch_add(delta, Ordering::SeqCst)
-        })
+        self.overlay::<AtomicI64>(offset)
+            .map(|a| a.fetch_add(delta, Ordering::SeqCst))
     }
 }
 
@@ -111,5 +112,15 @@ mod tests {
             atomic_buf.get_and_add_i64(1, 0),
             Err(AeronError::OutOfBounds)
         );
+    }
+
+    #[test]
+    fn negative_offset() {
+        let mut buf = [16, 0, 0, 0, 0, 0, 0, 0];
+        let atomic_buf = AtomicBuffer::wrap(&mut buf);
+        assert_eq!(
+            atomic_buf.get_and_add_i64(-1, 0),
+            Err(AeronError::OutOfBounds)
+        )
     }
 }
