@@ -17,6 +17,10 @@ unsafe extern "C" fn termination_hook(_clientd: *mut c_void) {
     RUNNING.store(false, Ordering::SeqCst);
 }
 
+unsafe extern "C" fn termination_validator(_state: *mut c_void, _buffer: *mut u8, _length: i32) -> bool {
+    true
+}
+
 fn main() {
     let version = unsafe { CStr::from_ptr(aeron_version_full()) };
     let _cmdline = clap::App::new("aeronmd")
@@ -61,6 +65,25 @@ fn main() {
                 err_code, err_str
             );
             init_success = false;
+        }
+    }
+
+    if init_success {
+        let term_validator = unsafe {
+            aeron_driver_context_set_driver_termination_validator(
+                context,
+                Some(termination_validator),
+                ptr::null_mut()
+            )
+        };
+        if term_validator < 0 {
+            let err_code = unsafe { aeron_errcode() };
+            let err_str = unsafe { CStr::from_ptr(aeron_errmsg()) }.to_str().unwrap();
+            eprintln!(
+                "ERROR: context set termination validator ({}), {}",
+                err_code, err_str
+            );
+            init_success = false
         }
     }
 
