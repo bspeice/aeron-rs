@@ -1,12 +1,13 @@
 //! Ring buffer wrapper for communicating with the Media Driver
 use crate::client::concurrent::atomic_buffer::AtomicBuffer;
-use crate::util::{AeronError, IndexT, Result};
+use crate::util::{bit, AeronError, IndexT, Result};
 
 /// Description of the Ring Buffer schema.
 pub mod buffer_descriptor {
     use crate::client::concurrent::atomic_buffer::AtomicBuffer;
+    use crate::util::bit::is_power_of_two;
     use crate::util::AeronError::IllegalArgument;
-    use crate::util::{is_power_of_two, IndexT, Result, CACHE_LINE_LENGTH};
+    use crate::util::{IndexT, Result, CACHE_LINE_LENGTH};
 
     // QUESTION: Why are these offsets so large when we only ever use i64 types?
 
@@ -57,11 +58,16 @@ pub mod buffer_descriptor {
 /// +---------------------------------------------------------------+
 /// ```
 pub mod record_descriptor {
-    use crate::util::IndexT;
     use std::mem::size_of;
+
+    use crate::util::Result;
+    use crate::util::{AeronError, IndexT};
 
     /// Size of the ring buffer record header.
     pub const HEADER_LENGTH: IndexT = size_of::<i32>() as IndexT * 2;
+
+    /// Alignment size of records written to the buffer
+    pub const ALIGNMENT: IndexT = HEADER_LENGTH;
 
     /// Message type indicating to the media driver that space has been reserved,
     /// and is not yet ready for processing.
@@ -73,16 +79,36 @@ pub mod record_descriptor {
         // Smells like Java.
         ((i64::from(msg_type_id) & 0xFFFF_FFFF) << 32) | (i64::from(length) & 0xFFFF_FFFF)
     }
+
+    /// Verify a message type identifier is safe for use
+    pub fn check_msg_type_id(msg_type_id: i32) -> Result<()> {
+        if msg_type_id < 1 {
+            Err(AeronError::IllegalArgument)
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Fetch the offset to begin writing a message payload
+    pub fn encoded_msg_offset(record_offset: IndexT) -> IndexT {
+        record_offset + HEADER_LENGTH
+    }
+
+    /// Fetch the offset to begin writing the message length
+    pub fn length_offset(record_offset: IndexT) -> IndexT {
+        record_offset
+    }
 }
 
 /// Multi-producer, single-consumer ring buffer implementation.
 pub struct ManyToOneRingBuffer<'a> {
     buffer: AtomicBuffer<'a>,
     capacity: IndexT,
+    max_msg_length: IndexT,
     tail_position_index: IndexT,
     head_cache_position_index: IndexT,
     head_position_index: IndexT,
-    _correlation_id_counter_index: IndexT,
+    correlation_id_counter_index: IndexT,
 }
 
 impl<'a> ManyToOneRingBuffer<'a> {
@@ -91,17 +117,65 @@ impl<'a> ManyToOneRingBuffer<'a> {
         buffer_descriptor::check_capacity(&buffer).map(|capacity| ManyToOneRingBuffer {
             buffer,
             capacity,
+            max_msg_length: capacity / 8,
             tail_position_index: capacity + buffer_descriptor::TAIL_POSITION_OFFSET,
             head_cache_position_index: capacity + buffer_descriptor::HEAD_CACHE_POSITION_OFFSET,
             head_position_index: capacity + buffer_descriptor::HEAD_POSITION_OFFSET,
-            _correlation_id_counter_index: capacity + buffer_descriptor::CORRELATION_COUNTER_OFFSET,
+            correlation_id_counter_index: capacity + buffer_descriptor::CORRELATION_COUNTER_OFFSET,
         })
+    }
+
+    /// Atomically retrieve the next correlation identifier. Used as a unique identifier for
+    /// interactions with the Media Driver
+    pub fn next_correlation_id(&self) -> i64 {
+        // UNWRAP: Known-valid offset calculated during initialization
+        self.buffer
+            .get_and_add_i64(self.correlation_id_counter_index, 1)
+            .unwrap()
+    }
+
+    /// Write a message into the ring buffer
+    pub fn write(
+        &mut self,
+        msg_type_id: i32,
+        source: &AtomicBuffer,
+        source_index: IndexT,
+        length: IndexT,
+    ) -> Result<()> {
+        record_descriptor::check_msg_type_id(msg_type_id)?;
+        self.check_msg_length(length)?;
+
+        let record_len = length + record_descriptor::HEADER_LENGTH;
+        let required = bit::align(record_len, record_descriptor::ALIGNMENT);
+        let record_index = self.claim_capacity(required)?;
+
+        // UNWRAP: `claim_capacity` performed bounds checking
+        self.buffer
+            .put_i64_ordered(
+                record_index,
+                record_descriptor::make_header(-length, msg_type_id),
+            )
+            .unwrap();
+        // UNWRAP: `claim_capacity` performed bounds checking
+        self.buffer
+            .put_bytes(
+                record_descriptor::encoded_msg_offset(record_index),
+                source,
+                source_index,
+                length,
+            )
+            .unwrap();
+        // UNWRAP: `claim_capacity` performed bounds checking
+        self.buffer
+            .put_i32_ordered(record_descriptor::length_offset(record_index), record_len)
+            .unwrap();
+
+        Ok(())
     }
 
     /// Claim capacity for a specific message size in the ring buffer. Returns the offset/index
     /// at which to start writing the next record.
-    // TODO: Shouldn't be `pub`, just trying to avoid warnings
-    pub fn claim_capacity(&mut self, required: IndexT) -> Result<IndexT> {
+    fn claim_capacity(&mut self, required: IndexT) -> Result<IndexT> {
         // QUESTION: Is this mask how we handle the "ring" in ring buffer?
         // Would explain why we assert buffer capacity is a power of two during initialization
         let mask = self.capacity - 1;
@@ -199,15 +273,27 @@ impl<'a> ManyToOneRingBuffer<'a> {
 
         Ok(tail_index)
     }
+
+    fn check_msg_length(&self, length: IndexT) -> Result<()> {
+        if length > self.max_msg_length {
+            Err(AeronError::IllegalArgument)
+        } else {
+            Ok(())
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::client::concurrent::atomic_buffer::AtomicBuffer;
-    use crate::client::concurrent::ring_buffer::ManyToOneRingBuffer;
+    use crate::client::concurrent::ring_buffer::{
+        buffer_descriptor, record_descriptor, ManyToOneRingBuffer,
+    };
+    use crate::util::IndexT;
+    use std::mem::size_of;
 
     #[test]
-    fn basic_claim_space() {
+    fn claim_capacity_basic() {
         let buf_size = super::buffer_descriptor::TRAILER_LENGTH as usize + 64;
         let mut buf = vec![0u8; buf_size];
 
@@ -224,5 +310,32 @@ mod tests {
 
         let write_start = ring_buf.claim_capacity(16).unwrap();
         assert_eq!(write_start, 16);
+    }
+
+    #[test]
+    fn write_basic() {
+        let mut bytes = vec![0u8; 512 + buffer_descriptor::TRAILER_LENGTH as usize];
+        let buffer = AtomicBuffer::wrap(&mut bytes);
+        let mut ring_buffer = ManyToOneRingBuffer::wrap(buffer).expect("Invalid buffer size");
+
+        let mut source_bytes = [12, 0, 0, 0, 0, 0, 0, 0];
+        let source_len = source_bytes.len() as IndexT;
+        let source_buffer = AtomicBuffer::wrap(&mut source_bytes);
+        let type_id = 1;
+        ring_buffer
+            .write(type_id, &source_buffer, 0, source_len)
+            .unwrap();
+
+        drop(ring_buffer);
+        let buffer = AtomicBuffer::wrap(&mut bytes);
+        let record_len = source_len + record_descriptor::HEADER_LENGTH;
+        assert_eq!(
+            buffer.get_i64_volatile(0).unwrap(),
+            record_descriptor::make_header(record_len, type_id)
+        );
+        assert_eq!(
+            buffer.get_i64_volatile(size_of::<i64>() as IndexT).unwrap(),
+            12
+        );
     }
 }

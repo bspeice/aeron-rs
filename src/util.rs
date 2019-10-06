@@ -6,11 +6,6 @@
 // QUESTION: Can this just be updated to be `usize` in Rust?
 pub type IndexT = i32;
 
-/// Helper method for quick verification that `IndexT` is a positive power of two
-pub fn is_power_of_two(idx: IndexT) -> bool {
-    idx > 0 && (idx as u32).is_power_of_two()
-}
-
 /// Length of the data blocks used by the CPU cache sub-system in bytes
 pub const CACHE_LINE_LENGTH: usize = 64;
 
@@ -28,3 +23,37 @@ pub enum AeronError {
 
 /// Result type for operations in the Aeron client
 pub type Result<T> = ::std::result::Result<T, AeronError>;
+
+/// Bit-level utility functions
+pub mod bit {
+    use crate::util::IndexT;
+    use num::PrimInt;
+
+    /// Helper method for quick verification that `IndexT` is a positive power of two
+    ///
+    /// ```rust
+    /// # use aeron_rs::util::bit::is_power_of_two;
+    /// assert!(is_power_of_two(16));
+    /// assert!(!is_power_of_two(17));
+    /// ```
+    pub fn is_power_of_two(idx: IndexT) -> bool {
+        idx > 0 && (idx as u32).is_power_of_two()
+    }
+
+    /// Align a specific value to the next largest alignment size.
+    ///
+    /// ```rust
+    /// # use aeron_rs::util::bit::align;
+    /// assert_eq!(align(7, 8), 8);
+    ///
+    /// // Not intended for alignments that aren't powers of two
+    /// assert_eq!(align(52, 12), 52);
+    /// assert_eq!(align(52, 16), 64);
+    /// ```
+    pub fn align<T>(val: T, alignment: T) -> T
+    where
+        T: PrimInt,
+    {
+        (val + (alignment - T::one())) & !(alignment - T::one())
+    }
+}
