@@ -17,7 +17,11 @@ unsafe extern "C" fn termination_hook(_clientd: *mut c_void) {
     RUNNING.store(false, Ordering::SeqCst);
 }
 
-unsafe extern "C" fn termination_validator(_state: *mut c_void, _buffer: *mut u8, _length: i32) -> bool {
+unsafe extern "C" fn termination_validator(
+    _state: *mut c_void,
+    _buffer: *mut u8,
+    _length: i32,
+) -> bool {
     true
 }
 
@@ -73,7 +77,7 @@ fn main() {
             aeron_driver_context_set_driver_termination_validator(
                 context,
                 Some(termination_validator),
-                ptr::null_mut()
+                ptr::null_mut(),
             )
         };
         if term_validator < 0 {
