@@ -50,7 +50,8 @@
 #[repr(C, align(4))]
 pub struct MetaDataDefinition {
     cnc_version: i32,
-    _to_driver_buffer_length: i32,
+    /// Size of the buffer containing data going to the media driver
+    pub to_driver_buffer_length: i32,
     _to_client_buffer_length: i32,
     _counter_metadata_buffer_length: i32,
     _counter_values_buffer_length: i32,

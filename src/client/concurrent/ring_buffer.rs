@@ -199,7 +199,6 @@ impl<'a> ManyToOneRingBuffer<'a> {
                 .unwrap();
             let available_capacity = self.capacity - (tail - head) as IndexT;
 
-            println!("Available: {}", available_capacity);
             if required > available_capacity {
                 // UNWRAP: Known-valid offset calculated during initialization
                 head = self
@@ -225,7 +224,6 @@ impl<'a> ManyToOneRingBuffer<'a> {
             tail_index = (tail & i64::from(mask)) as IndexT;
             let to_buffer_end_length = self.capacity - tail_index;
 
-            println!("To buffer end: {}", to_buffer_end_length);
             if required > to_buffer_end_length {
                 let mut head_index = (head & i64::from(mask)) as IndexT;
 

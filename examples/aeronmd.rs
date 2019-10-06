@@ -13,6 +13,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 static RUNNING: AtomicBool = AtomicBool::new(true);
 
 unsafe extern "C" fn termination_hook(_clientd: *mut c_void) {
+    println!("Terminated");
     RUNNING.store(false, Ordering::SeqCst);
 }
 

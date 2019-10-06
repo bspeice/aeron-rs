@@ -34,8 +34,10 @@ impl<'a> AtomicBuffer<'a> {
         }
     }
 
-    #[allow(clippy::cast_ptr_alignment)]
-    fn overlay<T>(&self, offset: IndexT) -> Result<&T>
+    /// Overlay a struct on a buffer.
+    ///
+    /// NOTE: Has the potential to cause undefined behavior if alignment is incorrect.
+    pub fn overlay<T>(&self, offset: IndexT) -> Result<&T>
     where
         T: Sized,
     {
