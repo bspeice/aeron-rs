@@ -73,25 +73,6 @@ fn main() {
     }
 
     if init_success {
-        let term_validator = unsafe {
-            aeron_driver_context_set_driver_termination_validator(
-                context,
-                Some(termination_validator),
-                ptr::null_mut(),
-            )
-        };
-        if term_validator < 0 {
-            let err_code = unsafe { aeron_errcode() };
-            let err_str = unsafe { CStr::from_ptr(aeron_errmsg()) }.to_str().unwrap();
-            eprintln!(
-                "ERROR: context set termination validator ({}), {}",
-                err_code, err_str
-            );
-            init_success = false
-        }
-    }
-
-    if init_success {
         let driver_init = unsafe { aeron_driver_init(&mut driver, context) };
         if driver_init < 0 {
             let err_code = unsafe { aeron_errcode() };
