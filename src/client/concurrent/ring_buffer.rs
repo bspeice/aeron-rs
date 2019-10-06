@@ -57,6 +57,7 @@ pub mod buffer_descriptor {
 ///...                                                              |
 /// +---------------------------------------------------------------+
 /// ```
+// QUESTION: What is the `R` bit in the diagram above?
 pub mod record_descriptor {
     use std::mem::size_of;
 
