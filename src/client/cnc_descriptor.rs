@@ -85,10 +85,13 @@ mod tests {
 
     #[test]
     fn read_cnc_version() {
+        let temp_dir = tempdir().unwrap();
+        let dir = temp_dir.path().to_path_buf();
+        temp_dir.close();
+
         let dir = tempdir().unwrap().into_path();
         let _driver = DriverContext::default()
             .set_aeron_dir(&dir)
-            .set_dir_delete_on_start(true)
             .build()
             .unwrap();
 

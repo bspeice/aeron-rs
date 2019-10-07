@@ -171,10 +171,12 @@ mod tests {
 
     #[test]
     fn multiple_startup_failure() {
-        let dir = tempdir().unwrap().into_path();
+        let temp_dir = tempdir().unwrap();
+        let dir = temp_dir.path().to_path_buf();
+        temp_dir.close();
+
         let driver = DriverContext::default()
             .set_aeron_dir(&dir)
-            .set_dir_delete_on_start(true)
             .build()
             .unwrap();
 
@@ -207,12 +209,12 @@ mod tests {
 
     #[test]
     fn single_duty_cycle() {
-        let tempdir = tempfile::tempdir().unwrap();
-        let path = tempdir.into_path();
+        let temp_dir = tempdir().unwrap();
+        let path = temp_dir.path().to_path_buf();
+        tempdir.close();
 
         let driver = DriverContext::default()
             .set_aeron_dir(&path)
-            .set_dir_delete_on_start(true)
             .build()
             .expect("Unable to create media driver")
             .start()
