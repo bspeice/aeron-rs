@@ -211,7 +211,7 @@ mod tests {
     fn single_duty_cycle() {
         let temp_dir = tempdir().unwrap();
         let path = temp_dir.path().to_path_buf();
-        tempdir.close();
+        temp_dir.close();
 
         let driver = DriverContext::default()
             .set_aeron_dir(&path)
