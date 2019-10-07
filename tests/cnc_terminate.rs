@@ -79,7 +79,9 @@ fn driver_thread(aeron_dir: PathBuf) {
 
 #[test]
 fn cnc_terminate() {
-    let dir = tempdir().unwrap().into_path();
+    let temp_dir = tempdir().unwrap();
+    let dir = temp_dir.path().to_path_buf();
+    temp_dir.close().unwrap();
 
     // Start up the media driver
     let driver_dir = dir.clone();
