@@ -1,7 +1,6 @@
 //! Media driver startup example based on
 //! [aeronmd.c](https://github.com/real-logic/aeron/blob/master/aeron-driver/src/main/c/aeronmd.c)
 //! This example demonstrates direct usage of the -sys bindings for the Media Driver API.
-//! The main crate has a more Rust-idiomatic example usage.
 
 use aeron_driver_sys::*;
 use clap;
