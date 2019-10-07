@@ -19,6 +19,9 @@
 //! +-----------------------------+
 //! ```
 
+use crate::util::bit;
+use std::mem::size_of;
+
 /// The CnC file metadata header. Layout:
 ///
 /// ```text
@@ -60,6 +63,10 @@ pub struct MetaDataDefinition {
     _start_timestamp: i64,
     _pid: i64,
 }
+
+/// Length of the metadata block in a CnC file. Note that it's not equivalent
+/// to the actual struct length.
+pub const META_DATA_LENGTH: usize = bit::align_usize(size_of::<MetaDataDefinition>(), bit::CACHE_LINE_LENGTH * 2);
 
 /// Version code for the Aeron CnC file format
 pub const CNC_VERSION: i32 = crate::sematic_version_compose(0, 0, 16);

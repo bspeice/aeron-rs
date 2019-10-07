@@ -6,6 +6,7 @@ use aeron_rs::util::IndexT;
 use memmap::MmapOptions;
 use std::fs::OpenOptions;
 use std::mem::size_of;
+use aeron_rs::client::cnc_descriptor;
 
 fn main() {
     let path = ClientContext::default_aeron_path();
@@ -22,8 +23,8 @@ fn main() {
     println!("MMap len: {}", mmap.len());
 
     // When creating the buffer, we need to offset by the CnC metadata
-    let cnc_metadata_len = size_of::<MetaDataDefinition>();
-    println!("Buffer len: {}", mmap[cnc_metadata_len..].len());
+    let cnc_metadata_len = cnc_descriptor::META_DATA_LENGTH;
+    println!("Buffer start: {}", cnc_metadata_len);
 
     // Read metadata to get buffer length
     let buffer_len = {
@@ -31,6 +32,7 @@ fn main() {
         let metadata = atomic_buffer.overlay::<MetaDataDefinition>(0).unwrap();
         metadata.to_driver_buffer_length
     };
+    println!("Buffer len: {}", buffer_len);
 
     let buffer_end = cnc_metadata_len + buffer_len as usize;
     let atomic_buffer = AtomicBuffer::wrap(&mut mmap[cnc_metadata_len..buffer_end]);
@@ -43,6 +45,7 @@ fn main() {
     let mut source_buffer = AtomicBuffer::wrap(&mut terminate_bytes);
     let client_id = ring_buffer.next_correlation_id();
     source_buffer.put_i64_ordered(0, client_id).unwrap();
+    source_buffer.put_i64_ordered(8, -1).unwrap();
 
     let term_id: i32 = 0x0E;
     ring_buffer

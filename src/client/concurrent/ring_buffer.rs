@@ -5,9 +5,9 @@ use crate::util::{bit, AeronError, IndexT, Result};
 /// Description of the Ring Buffer schema.
 pub mod buffer_descriptor {
     use crate::client::concurrent::atomic_buffer::AtomicBuffer;
-    use crate::util::bit::is_power_of_two;
+    use crate::util::bit::{is_power_of_two, CACHE_LINE_LENGTH};
     use crate::util::AeronError::IllegalArgument;
-    use crate::util::{IndexT, Result, CACHE_LINE_LENGTH};
+    use crate::util::{IndexT, Result};
 
     // QUESTION: Why are these offsets so large when we only ever use i64 types?
 
