@@ -70,7 +70,8 @@ pub const CNC_FILE: &str = "cnc.dat";
 #[cfg(test)]
 mod tests {
     use crate::client::cnc_descriptor::{MetaDataDefinition, CNC_FILE, CNC_VERSION};
-    use crate::driver::{DriverContext, MediaDriver};
+    use crate::client::concurrent::atomic_buffer::AtomicBuffer;
+    use crate::driver::DriverContext;
     use memmap::MmapOptions;
     use std::fs::File;
     use tempfile::tempdir;
@@ -81,8 +82,10 @@ mod tests {
         let dir_path = dir.as_ref().to_path_buf();
         dir.close().unwrap();
 
-        let context = DriverContext::default().set_aeron_dir(&dir_path);
-        let _driver = MediaDriver::with_context(context).unwrap();
+        let _driver = DriverContext::default()
+            .set_aeron_dir(&dir_path)
+            .build()
+            .unwrap();
 
         // Open the CnC location
         let cnc_path = dir_path.join(CNC_FILE);
