@@ -173,7 +173,7 @@ mod tests {
     fn multiple_startup_failure() {
         let temp_dir = tempdir().unwrap();
         let dir = temp_dir.path().to_path_buf();
-        temp_dir.close();
+        temp_dir.close().unwrap();
 
         let driver = DriverContext::default()
             .set_aeron_dir(&dir)
@@ -211,7 +211,7 @@ mod tests {
     fn single_duty_cycle() {
         let temp_dir = tempdir().unwrap();
         let path = temp_dir.path().to_path_buf();
-        temp_dir.close();
+        temp_dir.close().unwrap();
 
         let driver = DriverContext::default()
             .set_aeron_dir(&path)
