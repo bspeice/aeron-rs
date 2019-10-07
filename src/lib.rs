@@ -1,15 +1,24 @@
 //! [Aeron](https://github.com/real-logic/aeron) client for Rust
 #![deny(missing_docs)]
 
-mod context;
+#[cfg(target_endian = "big")]
+compile_error!("Aeron is only supported on little-endian architectures");
 
-/// Retrieve the C library version in (major, minor, patch) format
-pub fn aeron_version() -> (u32, u32, u32) {
-    unsafe {
-        (
-            aeron_driver_sys::aeron_version_major() as u32,
-            aeron_driver_sys::aeron_version_minor() as u32,
-            aeron_driver_sys::aeron_version_patch() as u32,
-        )
+pub mod client;
+pub mod control_protocol;
+pub mod driver;
+pub mod util;
+
+const fn sematic_version_compose(major: u8, minor: u8, patch: u8) -> i32 {
+    (major as i32) << 16 | (minor as i32) << 8 | (patch as i32)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::sematic_version_compose;
+
+    #[test]
+    fn version_compose_cnc() {
+        assert_eq!(sematic_version_compose(0, 0, 16), 16);
     }
 }
