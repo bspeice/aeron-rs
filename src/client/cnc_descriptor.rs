@@ -70,7 +70,6 @@ pub const CNC_FILE: &str = "cnc.dat";
 #[cfg(test)]
 mod tests {
     use crate::client::cnc_descriptor::{MetaDataDefinition, CNC_FILE, CNC_VERSION};
-    use crate::client::concurrent::atomic_buffer::AtomicBuffer;
     use crate::driver::DriverContext;
     use memmap::MmapOptions;
     use std::fs::File;
@@ -78,17 +77,15 @@ mod tests {
 
     #[test]
     fn read_cnc_version() {
-        let dir = tempdir().unwrap();
-        let dir_path = dir.as_ref().to_path_buf();
-        dir.close().unwrap();
-
+        let dir = tempdir().unwrap().into_path();
         let _driver = DriverContext::default()
-            .set_aeron_dir(&dir_path)
+            .set_aeron_dir(&dir)
+            .set_dir_delete_on_start(true)
             .build()
             .unwrap();
 
         // Open the CnC location
-        let cnc_path = dir_path.join(CNC_FILE);
+        let cnc_path = dir.join(CNC_FILE);
         let cnc_file = File::open(&cnc_path).expect("Unable to open CnC file");
         let mmap = unsafe {
             MmapOptions::default()
