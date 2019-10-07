@@ -20,8 +20,10 @@ script:
   - cargo test --release
   - cargo test --features "static"
 
-  - cd ..
+  - cd ../aeron-rs
   - cargo test
   - cargo test --release
+
+  - cd ..
   - cargo clippy --all
   - cargo fmt --all -- --check
