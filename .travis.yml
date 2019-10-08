@@ -15,14 +15,13 @@ before_script:
   - rustup component add rustfmt
 
 script:
-  - cd aeron_driver-sys
+  - cargo test --no-run
   - cargo test
+  - cargo test --release --no-run
   - cargo test --release
-  - cargo test --features "static"
 
-  - cd ../aeron-rs
-  - cargo test
-  - cargo test --release
+  - cd aeron_driver-sys/
+  - cargo test --features "static"
 
   - cd ..
   - cargo clippy --all
