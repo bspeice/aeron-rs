@@ -24,7 +24,6 @@ pub type Result<T> = ::std::result::Result<T, AeronError>;
 /// Bit-level utility functions
 pub mod bit {
     use crate::util::IndexT;
-    use num::PrimInt;
 
     /// Length of the data blocks used by the CPU cache sub-system in bytes
     pub const CACHE_LINE_LENGTH: usize = 64;
@@ -40,7 +39,7 @@ pub mod bit {
         idx > 0 && (idx as u32).is_power_of_two()
     }
 
-    /// Align a specific value to the next largest alignment size.
+    /// Align a `usize` value to the next highest multiple.
     ///
     /// ```rust
     /// # use aeron_rs::util::bit::align;
@@ -50,15 +49,7 @@ pub mod bit {
     /// assert_eq!(align(52, 12), 52);
     /// assert_eq!(align(52, 16), 64);
     /// ```
-    pub fn align<T>(val: T, alignment: T) -> T
-    where
-        T: PrimInt,
-    {
-        (val + (alignment - T::one())) & !(alignment - T::one())
-    }
-
-    /// Align a `usize` value. See `align` for similar functionality on general types.
-    pub const fn align_usize(val: usize, alignment: usize) -> usize {
+    pub const fn align(val: usize, alignment: usize) -> usize {
         (val + (alignment - 1)) & !(alignment - 1)
     }
 }

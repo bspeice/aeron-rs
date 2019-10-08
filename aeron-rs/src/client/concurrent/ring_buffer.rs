@@ -147,8 +147,8 @@ impl<'a> ManyToOneRingBuffer<'a> {
         self.check_msg_length(length)?;
 
         let record_len = length + record_descriptor::HEADER_LENGTH;
-        let required = bit::align(record_len, record_descriptor::ALIGNMENT);
-        let record_index = self.claim_capacity(required)?;
+        let required = bit::align(record_len as usize, record_descriptor::ALIGNMENT as usize);
+        let record_index = self.claim_capacity(required as IndexT)?;
 
         // UNWRAP: `claim_capacity` performed bounds checking
         self.buffer

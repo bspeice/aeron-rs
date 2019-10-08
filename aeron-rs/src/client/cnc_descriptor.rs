@@ -67,7 +67,7 @@ pub struct MetaDataDefinition {
 /// Length of the metadata block in a CnC file. Note that it's not equivalent
 /// to the actual struct length.
 pub const META_DATA_LENGTH: usize =
-    bit::align_usize(size_of::<MetaDataDefinition>(), bit::CACHE_LINE_LENGTH * 2);
+    bit::align(size_of::<MetaDataDefinition>(), bit::CACHE_LINE_LENGTH * 2);
 
 /// Version code for the Aeron CnC file format
 pub const CNC_VERSION: i32 = crate::sematic_version_compose(0, 0, 16);
