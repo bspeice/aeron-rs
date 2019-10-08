@@ -26,3 +26,10 @@ script:
   - cd ..
   - cargo clippy --all
   - cargo fmt --all -- --check
+
+branches:
+  only:
+    - master
+    - staging
+    - trying
+    
