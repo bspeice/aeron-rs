@@ -13,7 +13,7 @@ mod tests {
         let minor = unsafe { crate::aeron_version_minor() };
         let patch = unsafe { crate::aeron_version_patch() };
         assert_eq!(major, 1);
-        assert_eq!(minor, 21);
-        assert_eq!(patch, 2);
+        assert_eq!(minor, 22);
+        assert_eq!(patch, 0);
     }
 }
