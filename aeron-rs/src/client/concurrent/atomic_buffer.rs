@@ -108,6 +108,11 @@ impl<'a> AtomicBuffer<'a> {
         self.overlay_volatile::<i64>(offset)
     }
 
+    /// Get the current value at an offset without using any synchronization operations
+    pub fn get_i64(&self, offset: IndexT) -> Result<i64> {
+        self.overlay::<i64>(offset).map(|i| *i)
+    }
+
     /// Perform a volatile read
     ///
     /// ```rust
@@ -119,6 +124,11 @@ impl<'a> AtomicBuffer<'a> {
     /// ```
     pub fn get_i32_volatile(&self, offset: IndexT) -> Result<i32> {
         self.overlay_volatile::<i32>(offset)
+    }
+
+    /// Get the current value at an offset without using any synchronization operations
+    pub fn get_i32(&self, offset: IndexT) -> Result<i32> {
+        self.overlay::<i32>(offset).map(|i| *i)
     }
 
     /// Perform a volatile write of an `i64` into the buffer
@@ -200,7 +210,7 @@ impl<'a> AtomicBuffer<'a> {
     /// assert_eq!(atomic_buf.get_i64_volatile(0), Ok(2));
     /// ```
     pub fn compare_and_set_i64(&self, offset: IndexT, expected: i64, update: i64) -> Result<bool> {
-        // QUESTION: Do I need a volatile and atomic read here?
+        // QUESTION: Should I use a volatile read here as well?
         // Aeron C++ uses a volatile read before the atomic operation, but I think that
         // may be redundant. In addition, Rust's `read_volatile` operation returns a
         // *copied* value; running `compare_exchange` on that copy introduces a race condition
@@ -208,6 +218,16 @@ impl<'a> AtomicBuffer<'a> {
         self.overlay::<AtomicI64>(offset).map(|a| {
             a.compare_exchange(expected, update, Ordering::SeqCst, Ordering::SeqCst)
                 .is_ok()
+        })
+    }
+
+    /// Repeatedly write a value into an atomic buffer. Guaranteed to use `memset`.
+    pub fn set_memory(&mut self, offset: IndexT, length: usize, value: u8) -> Result<()> {
+        self.bounds_check(offset, length as IndexT).map(|_| unsafe {
+            self.buffer
+                .as_mut_ptr()
+                .offset(offset as isize)
+                .write_bytes(value, length)
         })
     }
 }
