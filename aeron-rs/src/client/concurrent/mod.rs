@@ -62,6 +62,20 @@ pub trait AtomicBuffer: Deref<Target = [u8]> + DerefMut<Target = [u8]> {
             })
     }
 
+    /// Overlay a mutable value on the buffer.
+    ///
+    /// NOTE: Has the potential to cause undefined behavior if alignment is incorrect
+    fn overlay_mut<T>(&mut self, offset: IndexT) -> Result<&mut T>
+    where
+        T: Sized
+    {
+        self.bounds_check(offset, size_of::<T>() as IndexT)
+            .map(|_| {
+                let offset_ptr = unsafe { self.as_mut_ptr().offset(offset as isize) };
+                unsafe { &mut *(offset_ptr as *mut T) }
+            })
+    }
+
     /// Overlay a struct on a buffer, and perform a volatile read
     ///
     /// ```rust
@@ -155,6 +169,11 @@ pub trait AtomicBuffer: Deref<Target = [u8]> + DerefMut<Target = [u8]> {
         self.overlay_volatile::<i64>(offset)
     }
 
+    /// Read an `i64` value from the buffer without performing any synchronization
+    fn get_i64(&self, offset: IndexT) -> Result<i64> {
+        self.overlay::<i64>(offset).map(|i| *i)
+    }
+
     /// Perform a volatile write of an `i64` value
     ///
     /// ```rust
@@ -165,6 +184,18 @@ pub trait AtomicBuffer: Deref<Target = [u8]> + DerefMut<Target = [u8]> {
     /// ```
     fn put_i64_ordered(&mut self, offset: IndexT, value: i64) -> Result<()> {
         self.write_volatile::<i64>(offset, value)
+    }
+
+    /// Write an `i64` value into the buffer without performing any synchronization
+    ///
+    /// ```rust
+    /// # use aeron_rs::client::concurrent::AtomicBuffer;
+    /// let mut buffer = vec![0u8; 8];
+    /// buffer.put_i64(0, 12);
+    /// assert_eq!(buffer.get_i64(0), Ok(12));
+    /// ```
+    fn put_i64(&mut self, offset: IndexT, value: i64) -> Result<()> {
+        self.overlay_mut::<i64>(offset).map(|i| *i = value)
     }
 
     /// Write the contents of one buffer to another. Does not perform any synchronization
@@ -209,6 +240,11 @@ pub trait AtomicBuffer: Deref<Target = [u8]> + DerefMut<Target = [u8]> {
         self.overlay_volatile::<i32>(offset)
     }
 
+    /// Read an `i32` value from the buffer without performing any synchronization
+    fn get_i32(&self, offset: IndexT) -> Result<i32> {
+        self.overlay::<i32>(offset).map(|i| *i)
+    }
+
     /// Perform a volatile write of an `i32` into the buffer
     ///
     /// ```rust
@@ -219,6 +255,11 @@ pub trait AtomicBuffer: Deref<Target = [u8]> + DerefMut<Target = [u8]> {
     /// ```
     fn put_i32_ordered(&mut self, offset: IndexT, value: i32) -> Result<()> {
         self.write_volatile::<i32>(offset, value)
+    }
+
+    /// Return the total number of bytes in this buffer
+    fn capacity(&self) -> IndexT {
+        self.len() as IndexT
     }
 }
 

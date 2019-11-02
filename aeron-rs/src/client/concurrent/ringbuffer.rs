@@ -2,7 +2,7 @@
 use crate::client::concurrent::AtomicBuffer;
 use crate::util::bit::align;
 use crate::util::{bit, AeronError, IndexT, Result};
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 /// Description of the Ring Buffer schema.
 pub mod buffer_descriptor {
@@ -97,8 +97,14 @@ pub mod record_descriptor {
         record_offset + HEADER_LENGTH
     }
 
-    pub(super) fn length_offset(record_offset: IndexT) -> IndexT {
+    /// Return the position of the record length field given a record's starting position
+    pub fn length_offset(record_offset: IndexT) -> IndexT {
         record_offset
+    }
+
+    /// Return the position of the record message type field given a record's starting position
+    pub fn type_offset(record_offset: IndexT) -> IndexT {
+        record_offset + size_of::<i32>() as IndexT
     }
 
     pub(super) fn record_length(header: i64) -> i32 {
@@ -109,6 +115,8 @@ pub mod record_descriptor {
         (header >> 32) as i32
     }
 }
+
+const INSUFFICIENT_CAPACITY: IndexT = -2;
 
 /// Multi-producer, single-consumer ring buffer implementation.
 pub struct ManyToOneRingBuffer<A>
@@ -150,6 +158,11 @@ where
             .unwrap()
     }
 
+    /// Return the total number of bytes in this buffer
+    pub fn capacity(&self) -> IndexT {
+        self.capacity
+    }
+
     /// Write a message into the ring buffer
     pub fn write<B>(
         &mut self,
@@ -157,7 +170,7 @@ where
         source: &B,
         source_index: IndexT,
         length: IndexT,
-    ) -> Result<()>
+    ) -> Result<bool>
     where
         B: AtomicBuffer,
     {
@@ -167,6 +180,10 @@ where
         let record_len = length + record_descriptor::HEADER_LENGTH;
         let required = bit::align(record_len as usize, record_descriptor::ALIGNMENT as usize);
         let record_index = self.claim_capacity(required as IndexT)?;
+
+        if record_index == INSUFFICIENT_CAPACITY {
+            return Ok(false);
+        }
 
         // UNWRAP: `claim_capacity` performed bounds checking
         self.buffer
@@ -189,7 +206,7 @@ where
             .put_i32_ordered(record_descriptor::length_offset(record_index), record_len)
             .unwrap();
 
-        Ok(())
+        Ok(true)
     }
 
     /// Read messages from the ring buffer and dispatch to `handler`, up to `message_count_limit`
@@ -266,7 +283,7 @@ where
     fn claim_capacity(&mut self, required: IndexT) -> Result<IndexT> {
         // QUESTION: Is this mask how we handle the "ring" in ring buffer?
         // Would explain why we assert buffer capacity is a power of two during initialization
-        let mask = self.capacity - 1;
+        let mask: IndexT = self.capacity - 1;
 
         // UNWRAP: Known-valid offset calculated during initialization
         let mut head = self
@@ -279,28 +296,18 @@ where
         let mut padding: IndexT;
         // Note the braces, making this a do-while loop
         while {
-            // UNWRAP: Known-valid offset calculated during initialization
-            tail = self
-                .buffer
-                .get_i64_volatile(self.tail_position_index)
-                .unwrap();
+            tail = self.buffer.get_i64_volatile(self.tail_position_index)?;
             let available_capacity = self.capacity - (tail - head) as IndexT;
 
             if required > available_capacity {
-                // UNWRAP: Known-valid offset calculated during initialization
-                head = self
-                    .buffer
-                    .get_i64_volatile(self.head_position_index)
-                    .unwrap();
+                head = self.buffer.get_i64_volatile(self.head_position_index)?;
 
                 if required > (self.capacity - (tail - head) as IndexT) {
-                    return Err(AeronError::InsufficientCapacity);
+                    return Ok(INSUFFICIENT_CAPACITY);
                 }
 
-                // UNWRAP: Known-valid offset calculated during initialization
                 self.buffer
-                    .put_i64_ordered(self.head_cache_position_index, head)
-                    .unwrap();
+                    .put_i64_ordered(self.head_cache_position_index, head)?;
             }
 
             padding = 0;
@@ -315,45 +322,32 @@ where
                 let mut head_index = (head & i64::from(mask)) as IndexT;
 
                 if required > head_index {
-                    // UNWRAP: Known-valid offset calculated during initialization
-                    head = self
-                        .buffer
-                        .get_i64_volatile(self.head_position_index)
-                        .unwrap();
+                    head = self.buffer.get_i64_volatile(self.head_position_index)?;
                     head_index = (head & i64::from(mask)) as IndexT;
 
                     if required > head_index {
-                        return Err(AeronError::InsufficientCapacity);
+                        return Ok(INSUFFICIENT_CAPACITY);
                     }
 
-                    // UNWRAP: Known-valid offset calculated during initialization
                     self.buffer
-                        .put_i64_ordered(self.head_cache_position_index, head)
-                        .unwrap();
+                        .put_i64_ordered(self.head_cache_position_index, head)?;
                 }
 
                 padding = to_buffer_end_length;
             }
 
-            // UNWRAP: Known-valid offset calculated during initialization
-            !self
-                .buffer
-                .compare_and_set_i64(
-                    self.tail_position_index,
-                    tail,
-                    tail + i64::from(required) + i64::from(padding),
-                )
-                .unwrap()
+            !self.buffer.compare_and_set_i64(
+                self.tail_position_index,
+                tail,
+                tail + i64::from(required) + i64::from(padding),
+            )?
         } {}
 
         if padding != 0 {
-            // UNWRAP: Known-valid offset calculated during initialization
-            self.buffer
-                .put_i64_ordered(
-                    tail_index,
-                    record_descriptor::make_header(padding, record_descriptor::PADDING_MSG_TYPE_ID),
-                )
-                .unwrap();
+            self.buffer.put_i64_ordered(
+                tail_index,
+                record_descriptor::make_header(padding, record_descriptor::PADDING_MSG_TYPE_ID),
+            )?;
             tail_index = 0;
         }
 
@@ -367,6 +361,11 @@ where
             Ok(())
         }
     }
+
+    /// Return the largest possible message size for this buffer
+    pub fn max_msg_length(&self) -> IndexT {
+        self.max_msg_length
+    }
 }
 
 impl<A> Deref for ManyToOneRingBuffer<A>
@@ -377,6 +376,15 @@ where
 
     fn deref(&self) -> &Self::Target {
         &self.buffer
+    }
+}
+
+impl<A> DerefMut for ManyToOneRingBuffer<A>
+where
+    A: AtomicBuffer,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.buffer
     }
 }
 
@@ -453,7 +461,7 @@ mod tests {
         let mut ring_buffer =
             ManyToOneRingBuffer::new(vec![0u8; BUFFER_SIZE]).expect("Invalid buffer size");
 
-        let mut source_buffer = &mut [12u8, 0, 0, 0, 0, 0, 0, 0][..];
+        let source_buffer = &mut [12u8, 0, 0, 0, 0, 0, 0, 0][..];
         let source_len = source_buffer.len() as IndexT;
         let type_id = 1;
         ring_buffer
@@ -475,7 +483,7 @@ mod tests {
         let mut ring_buffer =
             ManyToOneRingBuffer::new(vec![0u8; BUFFER_SIZE]).expect("Invalid buffer size");
 
-        let mut source_buffer = &mut [12u8, 0, 0, 0, 0, 0, 0, 0][..];
+        let source_buffer = &mut [12u8, 0, 0, 0, 0, 0, 0, 0][..];
         let source_len = source_buffer.len() as IndexT;
         let type_id = 1;
         ring_buffer
