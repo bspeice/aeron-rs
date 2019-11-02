@@ -160,7 +160,10 @@ fn should_insert_padding_record_plus_message_on_buffer_wrap() {
 fn should_insert_padding_record_plus_message_on_buffer_wrap_with_head_equal_to_tail() {
     let length: IndexT = 100;
     let record_length: IndexT = length + record_descriptor::HEADER_LENGTH;
-    let aligned_record_length: IndexT = align(record_length as usize, record_descriptor::ALIGNMENT as usize) as IndexT;
+    let aligned_record_length: IndexT = align(
+        record_length as usize,
+        record_descriptor::ALIGNMENT as usize,
+    ) as IndexT;
     let tail: IndexT = CAPACITY as IndexT - record_descriptor::ALIGNMENT;
     let head: IndexT = tail;
     let src_index: IndexT = 0;
@@ -173,10 +176,25 @@ fn should_insert_padding_record_plus_message_on_buffer_wrap_with_head_equal_to_t
     let write_res = buffer.write(MSG_TYPE_ID, &src_bytes, src_index, length);
     assert_eq!(write_res, Ok(true));
 
-    assert_eq!(buffer.get_i32(record_descriptor::type_offset(tail)), Ok(record_descriptor::PADDING_MSG_TYPE_ID));
-    assert_eq!(buffer.get_i32(record_descriptor::length_offset(tail)), Ok(record_descriptor::ALIGNMENT));
+    assert_eq!(
+        buffer.get_i32(record_descriptor::type_offset(tail)),
+        Ok(record_descriptor::PADDING_MSG_TYPE_ID)
+    );
+    assert_eq!(
+        buffer.get_i32(record_descriptor::length_offset(tail)),
+        Ok(record_descriptor::ALIGNMENT)
+    );
 
-    assert_eq!(buffer.get_i32(record_descriptor::length_offset(0)), Ok(record_length));
-    assert_eq!(buffer.get_i32(record_descriptor::type_offset(0)), Ok(MSG_TYPE_ID));
-    assert_eq!(buffer.get_i64(TAIL_COUNTER_INDEX), Ok((tail + aligned_record_length + record_descriptor::ALIGNMENT) as i64));
+    assert_eq!(
+        buffer.get_i32(record_descriptor::length_offset(0)),
+        Ok(record_length)
+    );
+    assert_eq!(
+        buffer.get_i32(record_descriptor::type_offset(0)),
+        Ok(MSG_TYPE_ID)
+    );
+    assert_eq!(
+        buffer.get_i64(TAIL_COUNTER_INDEX),
+        Ok((tail + aligned_record_length + record_descriptor::ALIGNMENT) as i64)
+    );
 }
