@@ -32,7 +32,7 @@ pub mod buffer_descriptor {
     /// Returns the actual capacity excluding ring buffer metadata.
     pub fn check_capacity<A>(buffer: &A) -> Result<IndexT>
     where
-        A: AtomicBuffer
+        A: AtomicBuffer,
     {
         let capacity = (buffer.len() - TRAILER_LENGTH as usize) as IndexT;
         if is_power_of_two(capacity) {
@@ -112,7 +112,7 @@ pub mod record_descriptor {
 /// Multi-producer, single-consumer ring buffer implementation.
 pub struct ManyToOneRingBuffer<A>
 where
-    A: AtomicBuffer
+    A: AtomicBuffer,
 {
     buffer: A,
     capacity: IndexT,
@@ -125,7 +125,7 @@ where
 
 impl<A> ManyToOneRingBuffer<A>
 where
-    A: AtomicBuffer
+    A: AtomicBuffer,
 {
     /// Create a many-to-one ring buffer from an underlying atomic buffer.
     pub fn new(buffer: A) -> Result<Self> {
@@ -256,6 +256,7 @@ where
 
         Ok(messages_read)
     }
+    */
 
     /// Claim capacity for a specific message size in the ring buffer. Returns the offset/index
     /// at which to start writing the next record.
@@ -363,10 +364,8 @@ where
             Ok(())
         }
     }
-    */
 }
 
-/*
 #[cfg(test)]
 mod tests {
     use crate::client::concurrent::AtomicBuffer;
@@ -377,12 +376,10 @@ mod tests {
     use std::mem::size_of;
 
     #[test]
-    fn claim_capacity_basic() {
+    fn claim_capacity_owned() {
         let buf_size = super::buffer_descriptor::TRAILER_LENGTH as usize + 64;
         let mut buf = vec![0u8; buf_size];
-
-        let atomic_buf = AtomicBuffer::wrap(&mut buf);
-        let mut ring_buf = ManyToOneRingBuffer::wrap(atomic_buf).unwrap();
+        let mut ring_buf = ManyToOneRingBuffer::new(buf).unwrap();
 
         ring_buf.claim_capacity(16).unwrap();
         assert_eq!(
@@ -396,6 +393,26 @@ mod tests {
         assert_eq!(write_start, 16);
     }
 
+    const TEST_BUFFER_SIZE: usize = super::buffer_descriptor::TRAILER_LENGTH as usize + 64;
+
+    #[test]
+    fn claim_capacity_shared() {
+        let mut buf = &mut [0u8; TEST_BUFFER_SIZE][..];
+        let mut ring_buf = ManyToOneRingBuffer::new(buf).unwrap();
+
+        ring_buf.claim_capacity(16).unwrap();
+        assert_eq!(
+            ring_buf
+                .buffer
+                .get_i64_volatile(ring_buf.tail_position_index),
+            Ok(16)
+        );
+
+        let write_start = ring_buf.claim_capacity(16).unwrap();
+        assert_eq!(write_start, 16);
+    }
+
+    /*
     #[test]
     fn write_basic() {
         let mut bytes = vec![0u8; 512 + buffer_descriptor::TRAILER_LENGTH as usize];
@@ -482,5 +499,5 @@ mod tests {
             assert_eq!(buffer.get_i32(i).unwrap(), 0);
         }
     }
+    */
 }
-*/
