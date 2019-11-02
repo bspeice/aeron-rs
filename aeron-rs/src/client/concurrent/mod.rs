@@ -165,6 +165,51 @@ pub trait AtomicBuffer: Deref<Target = [u8]> + DerefMut<Target = [u8]> {
     fn put_i64_ordered(&mut self, offset: IndexT, value: i64) -> Result<()> {
         self.write_volatile::<i64>(offset, value)
     }
+
+    /// Write the contents of one buffer to another. Does not perform any synchronization
+    fn put_bytes<B>(
+        &mut self,
+        index: IndexT,
+        source: &B,
+        source_index: IndexT,
+        len: IndexT,
+    ) -> Result<()>
+    where
+        B: AtomicBuffer,
+    {
+        self.bounds_check(index, len)?;
+        source.bounds_check(source_index, len)?;
+
+        let index = index as usize;
+        let source_index = source_index as usize;
+        let len = len as usize;
+
+        self[index..index + len].copy_from_slice(&source[source_index..source_index + len]);
+        Ok(())
+    }
+
+    /// Perform a volatile read of an `i32` from the buffer
+    ///
+    /// ```rust
+    /// # use aeron_rs::client::concurrent::AtomicBuffer;
+    /// let buffer = vec![0, 12, 0, 0, 0];
+    /// assert_eq!(buffer.get_i32_volatile(1), Ok(12));
+    /// ```
+    fn get_i32_volatile(&self, offset: IndexT) -> Result<i32> {
+        self.overlay_volatile::<i32>(offset)
+    }
+
+    /// Perform a volatile write of an `i32` into the buffer
+    ///
+    /// ```rust
+    /// # use aeron_rs::client::concurrent::AtomicBuffer;
+    /// let mut bytes = vec![0u8; 4];
+    /// bytes.put_i32_ordered(0, 12);
+    /// assert_eq!(bytes.get_i32_volatile(0), Ok(12));
+    /// ```
+    fn put_i32_ordered(&mut self, offset: IndexT, value: i32) -> Result<()> {
+        self.write_volatile::<i32>(offset, value)
+    }
 }
 
 impl AtomicBuffer for Vec<u8> {}

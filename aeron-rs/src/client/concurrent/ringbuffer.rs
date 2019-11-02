@@ -2,6 +2,7 @@
 use crate::client::concurrent::AtomicBuffer;
 use crate::util::bit::align;
 use crate::util::{bit, AeronError, IndexT, Result};
+use std::ops::Deref;
 
 /// Description of the Ring Buffer schema.
 pub mod buffer_descriptor {
@@ -149,7 +150,6 @@ where
             .unwrap()
     }
 
-    /*
     /// Write a message into the ring buffer
     pub fn write<B>(
         &mut self,
@@ -159,7 +159,7 @@ where
         length: IndexT,
     ) -> Result<()>
     where
-        B: AtomicBuffer
+        B: AtomicBuffer,
     {
         record_descriptor::check_msg_type_id(msg_type_id)?;
         self.check_msg_length(length)?;
@@ -192,6 +192,7 @@ where
         Ok(())
     }
 
+    /*
     /// Read messages from the ring buffer and dispatch to `handler`, up to `message_count_limit`
     pub fn read<F>(&mut self, mut handler: F, message_count_limit: usize) -> Result<usize>
     where
@@ -366,20 +367,31 @@ where
     }
 }
 
+impl<A> Deref for ManyToOneRingBuffer<A>
+where
+    A: AtomicBuffer,
+{
+    type Target = A;
+
+    fn deref(&self) -> &Self::Target {
+        &self.buffer
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::client::concurrent::AtomicBuffer;
     use crate::client::concurrent::ringbuffer::{
         buffer_descriptor, record_descriptor, ManyToOneRingBuffer,
     };
+    use crate::client::concurrent::AtomicBuffer;
     use crate::util::IndexT;
     use std::mem::size_of;
 
+    const BUFFER_SIZE: usize = 512 + super::buffer_descriptor::TRAILER_LENGTH as usize;
+
     #[test]
     fn claim_capacity_owned() {
-        let buf_size = super::buffer_descriptor::TRAILER_LENGTH as usize + 64;
-        let mut buf = vec![0u8; buf_size];
-        let mut ring_buf = ManyToOneRingBuffer::new(buf).unwrap();
+        let mut ring_buf = ManyToOneRingBuffer::new(vec![0u8; BUFFER_SIZE]).unwrap();
 
         ring_buf.claim_capacity(16).unwrap();
         assert_eq!(
@@ -392,12 +404,10 @@ mod tests {
         let write_start = ring_buf.claim_capacity(16).unwrap();
         assert_eq!(write_start, 16);
     }
-
-    const TEST_BUFFER_SIZE: usize = super::buffer_descriptor::TRAILER_LENGTH as usize + 64;
 
     #[test]
     fn claim_capacity_shared() {
-        let mut buf = &mut [0u8; TEST_BUFFER_SIZE][..];
+        let buf = &mut [0u8; BUFFER_SIZE][..];
         let mut ring_buf = ManyToOneRingBuffer::new(buf).unwrap();
 
         ring_buf.claim_capacity(16).unwrap();
@@ -412,34 +422,32 @@ mod tests {
         assert_eq!(write_start, 16);
     }
 
-    /*
     #[test]
     fn write_basic() {
-        let mut bytes = vec![0u8; 512 + buffer_descriptor::TRAILER_LENGTH as usize];
-        let buffer = AtomicBuffer::wrap(&mut bytes);
-        let mut ring_buffer = ManyToOneRingBuffer::wrap(buffer).expect("Invalid buffer size");
+        let mut ring_buffer =
+            ManyToOneRingBuffer::new(vec![0u8; BUFFER_SIZE]).expect("Invalid buffer size");
 
-        let mut source_bytes = [12, 0, 0, 0, 0, 0, 0, 0];
+        let source_bytes = &mut [12u8, 0, 0, 0][..];
         let source_len = source_bytes.len() as IndexT;
-        let source_buffer = AtomicBuffer::wrap(&mut source_bytes);
         let type_id = 1;
         ring_buffer
-            .write(type_id, &source_buffer, 0, source_len)
+            .write(type_id, &source_bytes, 0, source_len)
             .unwrap();
 
-        drop(ring_buffer);
-        let buffer = AtomicBuffer::wrap(&mut bytes);
         let record_len = source_len + record_descriptor::HEADER_LENGTH;
         assert_eq!(
-            buffer.get_i64_volatile(0).unwrap(),
+            ring_buffer.get_i64_volatile(0).unwrap(),
             record_descriptor::make_header(record_len, type_id)
         );
         assert_eq!(
-            buffer.get_i64_volatile(size_of::<i64>() as IndexT).unwrap(),
+            ring_buffer
+                .get_i64_volatile(size_of::<i64>() as IndexT)
+                .unwrap(),
             12
         );
     }
 
+    /*
     #[test]
     fn read_basic() {
         // Similar to write basic, put something into the buffer
