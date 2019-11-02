@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicI64, Ordering};
 use crate::util::{AeronError, IndexT, Result};
 use std::ptr::{read_volatile, write_volatile};
 
+use memmap::MmapMut;
 use std::ops::{Deref, DerefMut};
 
 /// Atomic operations on slices of memory
@@ -224,3 +225,5 @@ pub trait AtomicBuffer: Deref<Target = [u8]> + DerefMut<Target = [u8]> {
 impl AtomicBuffer for Vec<u8> {}
 
 impl AtomicBuffer for &mut [u8] {}
+
+impl AtomicBuffer for MmapMut {}
