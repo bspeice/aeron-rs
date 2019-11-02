@@ -431,31 +431,6 @@ mod tests {
     }
 
     #[test]
-    fn write_basic() {
-        let mut ring_buffer =
-            ManyToOneRingBuffer::new(vec![0u8; BUFFER_SIZE]).expect("Invalid buffer size");
-
-        let source_bytes = &mut [12u8, 0, 0, 0][..];
-        let source_len = source_bytes.len() as IndexT;
-        let type_id = 1;
-        ring_buffer
-            .write(type_id, &source_bytes, 0, source_len)
-            .unwrap();
-
-        let record_len = source_len + record_descriptor::HEADER_LENGTH;
-        assert_eq!(
-            ring_buffer.get_i64_volatile(0).unwrap(),
-            record_descriptor::make_header(record_len, type_id)
-        );
-        assert_eq!(
-            ring_buffer
-                .get_i64_volatile(size_of::<i64>() as IndexT)
-                .unwrap(),
-            12
-        );
-    }
-
-    #[test]
     fn read_basic() {
         // Similar to write basic, put something into the buffer
         let mut ring_buffer =
