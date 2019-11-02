@@ -77,7 +77,12 @@ fn should_write_to_empty_buffer() {
 fn should_reject_write_when_insufficient_space() {
     let length: IndexT = 100;
     let head: IndexT = 0;
-    let tail: IndexT = head + (CAPACITY - align((length - record_descriptor::ALIGNMENT) as usize, record_descriptor::ALIGNMENT as usize)) as IndexT;
+    let tail: IndexT = head
+        + (CAPACITY
+            - align(
+                (length - record_descriptor::ALIGNMENT) as usize,
+                record_descriptor::ALIGNMENT as usize,
+            )) as IndexT;
     let src_index: IndexT = 0;
 
     let mut buffer = ManyToOneRingBuffer::new(vec![0u8; BUFFER_SZ]).unwrap();
@@ -112,7 +117,10 @@ fn should_reject_write_when_buffer_full() {
 fn should_insert_padding_record_plus_message_on_buffer_wrap() {
     let length: IndexT = 100;
     let record_length: IndexT = length + record_descriptor::HEADER_LENGTH;
-    let aligned_record_length = align(record_length as usize, record_descriptor::ALIGNMENT as usize) as IndexT;
+    let aligned_record_length = align(
+        record_length as usize,
+        record_descriptor::ALIGNMENT as usize,
+    ) as IndexT;
     let tail: IndexT = CAPACITY as IndexT - record_descriptor::ALIGNMENT;
     let head: IndexT = tail - (record_descriptor::ALIGNMENT * 4);
     let src_index: IndexT = 0;
@@ -125,10 +133,25 @@ fn should_insert_padding_record_plus_message_on_buffer_wrap() {
     let write_res = buffer.write(MSG_TYPE_ID, &src_bytes, src_index, length);
     assert_eq!(write_res, Ok(true));
 
-    assert_eq!(buffer.get_i32(record_descriptor::type_offset(tail)), Ok(record_descriptor::PADDING_MSG_TYPE_ID));
-    assert_eq!(buffer.get_i32(record_descriptor::length_offset(tail)), Ok(record_descriptor::ALIGNMENT));
+    assert_eq!(
+        buffer.get_i32(record_descriptor::type_offset(tail)),
+        Ok(record_descriptor::PADDING_MSG_TYPE_ID)
+    );
+    assert_eq!(
+        buffer.get_i32(record_descriptor::length_offset(tail)),
+        Ok(record_descriptor::ALIGNMENT)
+    );
 
-    assert_eq!(buffer.get_i32(record_descriptor::length_offset(0)), Ok(record_length));
-    assert_eq!(buffer.get_i32(record_descriptor::type_offset(0)), Ok(MSG_TYPE_ID));
-    assert_eq!(buffer.get_i64(TAIL_COUNTER_INDEX), Ok((tail + aligned_record_length + record_descriptor::ALIGNMENT) as i64));
+    assert_eq!(
+        buffer.get_i32(record_descriptor::length_offset(0)),
+        Ok(record_length)
+    );
+    assert_eq!(
+        buffer.get_i32(record_descriptor::type_offset(0)),
+        Ok(MSG_TYPE_ID)
+    );
+    assert_eq!(
+        buffer.get_i64(TAIL_COUNTER_INDEX),
+        Ok((tail + aligned_record_length + record_descriptor::ALIGNMENT) as i64)
+    );
 }

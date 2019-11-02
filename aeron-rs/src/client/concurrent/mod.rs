@@ -67,7 +67,7 @@ pub trait AtomicBuffer: Deref<Target = [u8]> + DerefMut<Target = [u8]> {
     /// NOTE: Has the potential to cause undefined behavior if alignment is incorrect
     fn overlay_mut<T>(&mut self, offset: IndexT) -> Result<&mut T>
     where
-        T: Sized
+        T: Sized,
     {
         self.bounds_check(offset, size_of::<T>() as IndexT)
             .map(|_| {
