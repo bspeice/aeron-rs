@@ -4,4 +4,3 @@
 pub mod cnc_descriptor;
 pub mod concurrent;
 pub mod context;
-pub mod driver_proxy;

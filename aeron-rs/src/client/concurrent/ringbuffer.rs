@@ -1,11 +1,12 @@
 //! Ring buffer wrapper for communicating with the Media Driver
-use crate::client::concurrent::atomic_buffer::AtomicBuffer;
+use crate::client::concurrent::AtomicBuffer;
 use crate::util::bit::align;
 use crate::util::{bit, AeronError, IndexT, Result};
+use std::ops::Deref;
 
 /// Description of the Ring Buffer schema.
 pub mod buffer_descriptor {
-    use crate::client::concurrent::atomic_buffer::AtomicBuffer;
+    use crate::client::concurrent::AtomicBuffer;
     use crate::util::bit::{is_power_of_two, CACHE_LINE_LENGTH};
     use crate::util::AeronError::IllegalArgument;
     use crate::util::{IndexT, Result};
@@ -30,7 +31,10 @@ pub mod buffer_descriptor {
 
     /// Verify the capacity of a buffer is legal for use as a ring buffer.
     /// Returns the actual capacity excluding ring buffer metadata.
-    pub fn check_capacity(buffer: &AtomicBuffer<'_>) -> Result<IndexT> {
+    pub fn check_capacity<A>(buffer: &A) -> Result<IndexT>
+    where
+        A: AtomicBuffer,
+    {
         let capacity = (buffer.len() - TRAILER_LENGTH as usize) as IndexT;
         if is_power_of_two(capacity) {
             Ok(capacity)
@@ -107,8 +111,11 @@ pub mod record_descriptor {
 }
 
 /// Multi-producer, single-consumer ring buffer implementation.
-pub struct ManyToOneRingBuffer<'a> {
-    buffer: AtomicBuffer<'a>,
+pub struct ManyToOneRingBuffer<A>
+where
+    A: AtomicBuffer,
+{
+    buffer: A,
     capacity: IndexT,
     max_msg_length: IndexT,
     tail_position_index: IndexT,
@@ -117,9 +124,12 @@ pub struct ManyToOneRingBuffer<'a> {
     correlation_id_counter_index: IndexT,
 }
 
-impl<'a> ManyToOneRingBuffer<'a> {
+impl<A> ManyToOneRingBuffer<A>
+where
+    A: AtomicBuffer,
+{
     /// Create a many-to-one ring buffer from an underlying atomic buffer.
-    pub fn wrap(buffer: AtomicBuffer<'a>) -> Result<Self> {
+    pub fn new(buffer: A) -> Result<Self> {
         buffer_descriptor::check_capacity(&buffer).map(|capacity| ManyToOneRingBuffer {
             buffer,
             capacity,
@@ -141,13 +151,16 @@ impl<'a> ManyToOneRingBuffer<'a> {
     }
 
     /// Write a message into the ring buffer
-    pub fn write(
+    pub fn write<B>(
         &mut self,
         msg_type_id: i32,
-        source: &AtomicBuffer,
+        source: &B,
         source_index: IndexT,
         length: IndexT,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        B: AtomicBuffer,
+    {
         record_descriptor::check_msg_type_id(msg_type_id)?;
         self.check_msg_length(length)?;
 
@@ -182,10 +195,14 @@ impl<'a> ManyToOneRingBuffer<'a> {
     /// Read messages from the ring buffer and dispatch to `handler`, up to `message_count_limit`
     pub fn read<F>(&mut self, mut handler: F, message_count_limit: usize) -> Result<usize>
     where
-        F: FnMut(i32, &AtomicBuffer, IndexT, IndexT) -> (),
+        F: FnMut(i32, &A, IndexT, IndexT) -> (),
     {
+        // QUESTION: Should I implement the `get_i64` method that C++ uses?
         // UNWRAP: Bounds check performed during buffer creation
-        let head = self.buffer.get_i64(self.head_position_index).unwrap();
+        let head = self
+            .buffer
+            .get_i64_volatile(self.head_position_index)
+            .unwrap();
         let head_index = (head & i64::from(self.capacity - 1)) as i32;
         let contiguous_block_length = self.capacity - head_index;
         let mut messages_read = 0;
@@ -352,22 +369,46 @@ impl<'a> ManyToOneRingBuffer<'a> {
     }
 }
 
+impl<A> Deref for ManyToOneRingBuffer<A>
+where
+    A: AtomicBuffer,
+{
+    type Target = A;
+
+    fn deref(&self) -> &Self::Target {
+        &self.buffer
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::client::concurrent::atomic_buffer::AtomicBuffer;
-    use crate::client::concurrent::ring_buffer::{
-        buffer_descriptor, record_descriptor, ManyToOneRingBuffer,
-    };
+    use crate::client::concurrent::ringbuffer::{record_descriptor, ManyToOneRingBuffer};
+    use crate::client::concurrent::AtomicBuffer;
     use crate::util::IndexT;
     use std::mem::size_of;
 
-    #[test]
-    fn claim_capacity_basic() {
-        let buf_size = super::buffer_descriptor::TRAILER_LENGTH as usize + 64;
-        let mut buf = vec![0u8; buf_size];
+    const BUFFER_SIZE: usize = 512 + super::buffer_descriptor::TRAILER_LENGTH as usize;
 
-        let atomic_buf = AtomicBuffer::wrap(&mut buf);
-        let mut ring_buf = ManyToOneRingBuffer::wrap(atomic_buf).unwrap();
+    #[test]
+    fn claim_capacity_owned() {
+        let mut ring_buf = ManyToOneRingBuffer::new(vec![0u8; BUFFER_SIZE]).unwrap();
+
+        ring_buf.claim_capacity(16).unwrap();
+        assert_eq!(
+            ring_buf
+                .buffer
+                .get_i64_volatile(ring_buf.tail_position_index),
+            Ok(16)
+        );
+
+        let write_start = ring_buf.claim_capacity(16).unwrap();
+        assert_eq!(write_start, 16);
+    }
+
+    #[test]
+    fn claim_capacity_shared() {
+        let buf = &mut [0u8; BUFFER_SIZE][..];
+        let mut ring_buf = ManyToOneRingBuffer::new(buf).unwrap();
 
         ring_buf.claim_capacity(16).unwrap();
         assert_eq!(
@@ -383,27 +424,25 @@ mod tests {
 
     #[test]
     fn write_basic() {
-        let mut bytes = vec![0u8; 512 + buffer_descriptor::TRAILER_LENGTH as usize];
-        let buffer = AtomicBuffer::wrap(&mut bytes);
-        let mut ring_buffer = ManyToOneRingBuffer::wrap(buffer).expect("Invalid buffer size");
+        let mut ring_buffer =
+            ManyToOneRingBuffer::new(vec![0u8; BUFFER_SIZE]).expect("Invalid buffer size");
 
-        let mut source_bytes = [12, 0, 0, 0, 0, 0, 0, 0];
+        let source_bytes = &mut [12u8, 0, 0, 0][..];
         let source_len = source_bytes.len() as IndexT;
-        let source_buffer = AtomicBuffer::wrap(&mut source_bytes);
         let type_id = 1;
         ring_buffer
-            .write(type_id, &source_buffer, 0, source_len)
+            .write(type_id, &source_bytes, 0, source_len)
             .unwrap();
 
-        drop(ring_buffer);
-        let buffer = AtomicBuffer::wrap(&mut bytes);
         let record_len = source_len + record_descriptor::HEADER_LENGTH;
         assert_eq!(
-            buffer.get_i64_volatile(0).unwrap(),
+            ring_buffer.get_i64_volatile(0).unwrap(),
             record_descriptor::make_header(record_len, type_id)
         );
         assert_eq!(
-            buffer.get_i64_volatile(size_of::<i64>() as IndexT).unwrap(),
+            ring_buffer
+                .get_i64_volatile(size_of::<i64>() as IndexT)
+                .unwrap(),
             12
         );
     }
@@ -411,41 +450,33 @@ mod tests {
     #[test]
     fn read_basic() {
         // Similar to write basic, put something into the buffer
-        let mut bytes = vec![0u8; 512 + buffer_descriptor::TRAILER_LENGTH as usize];
-        let buffer = AtomicBuffer::wrap(&mut bytes);
-        let mut ring_buffer = ManyToOneRingBuffer::wrap(buffer).expect("Invalid buffer size");
+        let mut ring_buffer =
+            ManyToOneRingBuffer::new(vec![0u8; BUFFER_SIZE]).expect("Invalid buffer size");
 
-        let mut source_bytes = [12, 0, 0, 0, 0, 0, 0, 0];
-        let source_len = source_bytes.len() as IndexT;
-        let source_buffer = AtomicBuffer::wrap(&mut source_bytes);
+        let mut source_buffer = &mut [12u8, 0, 0, 0, 0, 0, 0, 0][..];
+        let source_len = source_buffer.len() as IndexT;
         let type_id = 1;
         ring_buffer
             .write(type_id, &source_buffer, 0, source_len)
             .unwrap();
 
         // Now we can start the actual read process
-        let c = |_, buf: &AtomicBuffer, offset, _| {
-            assert_eq!(buf.get_i64_volatile(offset).unwrap(), 12)
-        };
+        let c = |_, buf: &Vec<u8>, offset, _| assert_eq!(buf.get_i64_volatile(offset).unwrap(), 12);
         ring_buffer.read(c, 1).unwrap();
 
         // Make sure that the buffer was zeroed on finish
-        drop(ring_buffer);
-        let buffer = AtomicBuffer::wrap(&mut bytes);
         for i in (0..record_descriptor::ALIGNMENT * 1).step_by(4) {
-            assert_eq!(buffer.get_i32(i).unwrap(), 0);
+            assert_eq!(ring_buffer.get_i32_volatile(i).unwrap(), 0);
         }
     }
 
     #[test]
     fn read_multiple() {
-        let mut bytes = vec![0u8; 512 + buffer_descriptor::TRAILER_LENGTH as usize];
-        let buffer = AtomicBuffer::wrap(&mut bytes);
-        let mut ring_buffer = ManyToOneRingBuffer::wrap(buffer).expect("Invalid buffer size");
+        let mut ring_buffer =
+            ManyToOneRingBuffer::new(vec![0u8; BUFFER_SIZE]).expect("Invalid buffer size");
 
-        let mut source_bytes = [12, 0, 0, 0, 0, 0, 0, 0];
-        let source_len = source_bytes.len() as IndexT;
-        let source_buffer = AtomicBuffer::wrap(&mut source_bytes);
+        let mut source_buffer = &mut [12u8, 0, 0, 0, 0, 0, 0, 0][..];
+        let source_len = source_buffer.len() as IndexT;
         let type_id = 1;
         ring_buffer
             .write(type_id, &source_buffer, 0, source_len)
@@ -455,7 +486,7 @@ mod tests {
             .unwrap();
 
         let mut msg_count = 0;
-        let c = |_, buf: &AtomicBuffer, offset, _| {
+        let c = |_, buf: &Vec<u8>, offset, _| {
             msg_count += 1;
             assert_eq!(buf.get_i64_volatile(offset).unwrap(), 12);
         };
@@ -463,10 +494,8 @@ mod tests {
         assert_eq!(msg_count, 2);
 
         // Make sure that the buffer was zeroed on finish
-        drop(ring_buffer);
-        let buffer = AtomicBuffer::wrap(&mut bytes);
         for i in (0..record_descriptor::ALIGNMENT * 2).step_by(4) {
-            assert_eq!(buffer.get_i32(i).unwrap(), 0);
+            assert_eq!(ring_buffer.get_i32_volatile(i).unwrap(), 0);
         }
     }
 }
