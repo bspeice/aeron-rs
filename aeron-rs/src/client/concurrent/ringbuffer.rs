@@ -1,11 +1,11 @@
 //! Ring buffer wrapper for communicating with the Media Driver
-use crate::client::concurrent::atomic_buffer::AtomicBuffer;
+use crate::client::concurrent::AtomicBuffer;
 use crate::util::bit::align;
 use crate::util::{bit, AeronError, IndexT, Result};
 
 /// Description of the Ring Buffer schema.
 pub mod buffer_descriptor {
-    use crate::client::concurrent::atomic_buffer::AtomicBuffer;
+    use crate::client::concurrent::AtomicBuffer;
     use crate::util::bit::{is_power_of_two, CACHE_LINE_LENGTH};
     use crate::util::AeronError::IllegalArgument;
     use crate::util::{IndexT, Result};
@@ -354,8 +354,8 @@ impl<'a> ManyToOneRingBuffer<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::client::concurrent::atomic_buffer::AtomicBuffer;
-    use crate::client::concurrent::ring_buffer::{
+    use crate::client::concurrent::AtomicBuffer;
+    use crate::client::concurrent::ringbuffer::{
         buffer_descriptor, record_descriptor, ManyToOneRingBuffer,
     };
     use crate::util::IndexT;

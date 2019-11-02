@@ -1,7 +1,7 @@
 //! Proxy object for interacting with the Media Driver. Handles operations
 //! involving the command-and-control file protocol.
 
-use crate::client::concurrent::ring_buffer::ManyToOneRingBuffer;
+use crate::client::concurrent::ringbuffer::ManyToOneRingBuffer;
 
 /// Proxy object for operations involving the Media Driver
 pub struct DriverProxy<'a> {

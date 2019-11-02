@@ -1,7 +1,7 @@
 use aeron_driver_sys::*;
 use aeron_rs::client::cnc_descriptor;
-use aeron_rs::client::concurrent::atomic_buffer::AtomicBuffer;
-use aeron_rs::client::concurrent::ring_buffer::ManyToOneRingBuffer;
+use aeron_rs::client::concurrent::AtomicBuffer;
+use aeron_rs::client::concurrent::ringbuffer::ManyToOneRingBuffer;
 use aeron_rs::util::IndexT;
 use memmap::MmapOptions;
 use std::ffi::{c_void, CString};
