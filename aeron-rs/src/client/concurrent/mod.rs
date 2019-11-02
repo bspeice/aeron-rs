@@ -191,7 +191,9 @@ pub trait AtomicBuffer: Deref<Target = [u8]> + DerefMut<Target = [u8]> {
     /// Repeatedly write a value into an atomic buffer. Guaranteed to use `memset`.
     fn set_memory(&mut self, offset: IndexT, length: usize, value: u8) -> Result<()> {
         self.bounds_check(offset, length as IndexT).map(|_| unsafe {
-            self.as_mut_ptr().offset(offset as isize).write_bytes(value, length)
+            self.as_mut_ptr()
+                .offset(offset as isize)
+                .write_bytes(value, length)
         })
     }
 

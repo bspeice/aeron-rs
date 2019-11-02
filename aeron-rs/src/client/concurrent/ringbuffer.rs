@@ -199,7 +199,10 @@ where
     {
         // QUESTION: Should I implement the `get_i64` method that C++ uses?
         // UNWRAP: Bounds check performed during buffer creation
-        let head = self.buffer.get_i64_volatile(self.head_position_index).unwrap();
+        let head = self
+            .buffer
+            .get_i64_volatile(self.head_position_index)
+            .unwrap();
         let head_index = (head & i64::from(self.capacity - 1)) as i32;
         let contiguous_block_length = self.capacity - head_index;
         let mut messages_read = 0;
@@ -379,9 +382,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::client::concurrent::ringbuffer::{
-        record_descriptor, ManyToOneRingBuffer,
-    };
+    use crate::client::concurrent::ringbuffer::{record_descriptor, ManyToOneRingBuffer};
     use crate::client::concurrent::AtomicBuffer;
     use crate::util::IndexT;
     use std::mem::size_of;
@@ -449,7 +450,8 @@ mod tests {
     #[test]
     fn read_basic() {
         // Similar to write basic, put something into the buffer
-        let mut ring_buffer = ManyToOneRingBuffer::new(vec![0u8; BUFFER_SIZE]).expect("Invalid buffer size");
+        let mut ring_buffer =
+            ManyToOneRingBuffer::new(vec![0u8; BUFFER_SIZE]).expect("Invalid buffer size");
 
         let mut source_buffer = &mut [12u8, 0, 0, 0, 0, 0, 0, 0][..];
         let source_len = source_buffer.len() as IndexT;
@@ -459,9 +461,7 @@ mod tests {
             .unwrap();
 
         // Now we can start the actual read process
-        let c = |_, buf: &Vec<u8>, offset, _| {
-            assert_eq!(buf.get_i64_volatile(offset).unwrap(), 12)
-        };
+        let c = |_, buf: &Vec<u8>, offset, _| assert_eq!(buf.get_i64_volatile(offset).unwrap(), 12);
         ring_buffer.read(c, 1).unwrap();
 
         // Make sure that the buffer was zeroed on finish
@@ -472,7 +472,8 @@ mod tests {
 
     #[test]
     fn read_multiple() {
-        let mut ring_buffer = ManyToOneRingBuffer::new(vec![0u8; BUFFER_SIZE]).expect("Invalid buffer size");
+        let mut ring_buffer =
+            ManyToOneRingBuffer::new(vec![0u8; BUFFER_SIZE]).expect("Invalid buffer size");
 
         let mut source_buffer = &mut [12u8, 0, 0, 0, 0, 0, 0, 0][..];
         let source_len = source_buffer.len() as IndexT;
