@@ -77,6 +77,7 @@ fn driver_thread(aeron_dir: PathBuf) {
     unsafe { aeron_driver_context_close(context) };
 }
 
+/*
 #[test]
 fn cnc_terminate() {
     let temp_dir = tempdir().unwrap();
@@ -141,3 +142,4 @@ fn cnc_terminate() {
         .expect("Driver thread panicked during execution");
     assert_eq!(RUNNING.load(Ordering::SeqCst), false);
 }
+*/

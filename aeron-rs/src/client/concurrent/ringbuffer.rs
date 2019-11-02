@@ -30,7 +30,10 @@ pub mod buffer_descriptor {
 
     /// Verify the capacity of a buffer is legal for use as a ring buffer.
     /// Returns the actual capacity excluding ring buffer metadata.
-    pub fn check_capacity(buffer: &AtomicBuffer<'_>) -> Result<IndexT> {
+    pub fn check_capacity<A>(buffer: &A) -> Result<IndexT>
+    where
+        A: AtomicBuffer
+    {
         let capacity = (buffer.len() - TRAILER_LENGTH as usize) as IndexT;
         if is_power_of_two(capacity) {
             Ok(capacity)
@@ -107,8 +110,11 @@ pub mod record_descriptor {
 }
 
 /// Multi-producer, single-consumer ring buffer implementation.
-pub struct ManyToOneRingBuffer<'a> {
-    buffer: AtomicBuffer<'a>,
+pub struct ManyToOneRingBuffer<A>
+where
+    A: AtomicBuffer
+{
+    buffer: A,
     capacity: IndexT,
     max_msg_length: IndexT,
     tail_position_index: IndexT,
@@ -117,9 +123,12 @@ pub struct ManyToOneRingBuffer<'a> {
     correlation_id_counter_index: IndexT,
 }
 
-impl<'a> ManyToOneRingBuffer<'a> {
+impl<A> ManyToOneRingBuffer<A>
+where
+    A: AtomicBuffer
+{
     /// Create a many-to-one ring buffer from an underlying atomic buffer.
-    pub fn wrap(buffer: AtomicBuffer<'a>) -> Result<Self> {
+    pub fn new(buffer: A) -> Result<Self> {
         buffer_descriptor::check_capacity(&buffer).map(|capacity| ManyToOneRingBuffer {
             buffer,
             capacity,
@@ -140,14 +149,18 @@ impl<'a> ManyToOneRingBuffer<'a> {
             .unwrap()
     }
 
+    /*
     /// Write a message into the ring buffer
-    pub fn write(
+    pub fn write<B>(
         &mut self,
         msg_type_id: i32,
-        source: &AtomicBuffer,
+        source: &B,
         source_index: IndexT,
         length: IndexT,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        B: AtomicBuffer
+    {
         record_descriptor::check_msg_type_id(msg_type_id)?;
         self.check_msg_length(length)?;
 
@@ -182,7 +195,7 @@ impl<'a> ManyToOneRingBuffer<'a> {
     /// Read messages from the ring buffer and dispatch to `handler`, up to `message_count_limit`
     pub fn read<F>(&mut self, mut handler: F, message_count_limit: usize) -> Result<usize>
     where
-        F: FnMut(i32, &AtomicBuffer, IndexT, IndexT) -> (),
+        F: FnMut(i32, &A, IndexT, IndexT) -> (),
     {
         // UNWRAP: Bounds check performed during buffer creation
         let head = self.buffer.get_i64(self.head_position_index).unwrap();
@@ -350,8 +363,10 @@ impl<'a> ManyToOneRingBuffer<'a> {
             Ok(())
         }
     }
+    */
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use crate::client::concurrent::AtomicBuffer;
@@ -415,16 +430,15 @@ mod tests {
         let buffer = AtomicBuffer::wrap(&mut bytes);
         let mut ring_buffer = ManyToOneRingBuffer::wrap(buffer).expect("Invalid buffer size");
 
-        let mut source_bytes = [12, 0, 0, 0, 0, 0, 0, 0];
+        let mut source_buffer = &mut [12u8, 0, 0, 0, 0, 0, 0, 0][..];
         let source_len = source_bytes.len() as IndexT;
-        let source_buffer = AtomicBuffer::wrap(&mut source_bytes);
         let type_id = 1;
         ring_buffer
             .write(type_id, &source_buffer, 0, source_len)
             .unwrap();
 
         // Now we can start the actual read process
-        let c = |_, buf: &AtomicBuffer, offset, _| {
+        let c = |_, buf: &dyn AtomicBuffer, offset, _| {
             assert_eq!(buf.get_i64_volatile(offset).unwrap(), 12)
         };
         ring_buffer.read(c, 1).unwrap();
@@ -443,9 +457,8 @@ mod tests {
         let buffer = AtomicBuffer::wrap(&mut bytes);
         let mut ring_buffer = ManyToOneRingBuffer::wrap(buffer).expect("Invalid buffer size");
 
-        let mut source_bytes = [12, 0, 0, 0, 0, 0, 0, 0];
+        let mut source_buffer = &mut [12u8, 0, 0, 0, 0, 0, 0, 0][..];
         let source_len = source_bytes.len() as IndexT;
-        let source_buffer = AtomicBuffer::wrap(&mut source_bytes);
         let type_id = 1;
         ring_buffer
             .write(type_id, &source_buffer, 0, source_len)
@@ -455,7 +468,7 @@ mod tests {
             .unwrap();
 
         let mut msg_count = 0;
-        let c = |_, buf: &AtomicBuffer, offset, _| {
+        let c = |_, buf: &dyn AtomicBuffer, offset, _| {
             msg_count += 1;
             assert_eq!(buf.get_i64_volatile(offset).unwrap(), 12);
         };
@@ -470,3 +483,4 @@ mod tests {
         }
     }
 }
+*/
