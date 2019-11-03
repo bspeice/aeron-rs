@@ -16,6 +16,8 @@ pub enum AeronError {
     OutOfBounds,
     /// Indication that a buffer operation could not complete because of space constraints
     InsufficientCapacity,
+    /// Indication that we have reached an invalid state and can't continue processing
+    IllegalState,
 }
 
 /// Result type for operations in the Aeron client
