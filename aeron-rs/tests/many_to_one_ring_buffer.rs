@@ -222,7 +222,7 @@ fn should_read_single_message() {
         .unwrap();
 
     let mut times_called = 0;
-    let closure = |_, _buf: &Vec<u8>, _, _| {
+    let closure = |_, _: &[u8]| {
         times_called += 1;
     };
     let messages_read = buffer.read(closure);
@@ -260,7 +260,7 @@ fn should_not_read_single_message_part_way_through_writing() {
         .unwrap();
 
     let mut times_called = 0;
-    let closure = |_, _buf: &Vec<u8>, _, _| {
+    let closure = |_, _: &[u8]| {
         times_called += 1;
     };
     let messages_read = buffer.read(closure);
@@ -306,7 +306,7 @@ fn should_read_two_messages() {
         .unwrap();
 
     let mut times_called = 0;
-    let closure = |_, _buf: &Vec<u8>, _, _| {
+    let closure = |_, _: &[u8]| {
         times_called += 1;
     };
     let messages_read = buffer.read(closure);
@@ -359,7 +359,7 @@ fn should_limit_read_of_messages() {
         .unwrap();
 
     let mut times_called = 0;
-    let closure = |_, _buf: &Vec<u8>, _, _| {
+    let closure = |_, _: &[u8]| {
         times_called += 1;
     };
     let messages_read = buffer.read_n(closure, 1);
