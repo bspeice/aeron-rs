@@ -11,11 +11,14 @@ pub mod buffer_descriptor {
     use crate::util::{AeronError, IndexT, Result};
     use std::mem::size_of;
 
-    pub(super) const TAIL_INTENT_COUNTER_OFFSET: IndexT = 0;
-    pub(super) const TAIL_COUNTER_OFFSET: IndexT =
-        TAIL_INTENT_COUNTER_OFFSET + size_of::<i64>() as IndexT;
-    pub(super) const LATEST_COUNTER_OFFSET: IndexT =
-        TAIL_COUNTER_OFFSET + size_of::<i64>() as IndexT;
+    /// Offset within the trailer for the tail intended value
+    pub const TAIL_INTENT_COUNTER_OFFSET: IndexT = 0;
+
+    /// Offset within the trailer for the tail value
+    pub const TAIL_COUNTER_OFFSET: IndexT = TAIL_INTENT_COUNTER_OFFSET + size_of::<i64>() as IndexT;
+
+    /// Offset within the buffer trailer for the latest sequence value
+    pub const LATEST_COUNTER_OFFSET: IndexT = TAIL_COUNTER_OFFSET + size_of::<i64>() as IndexT;
 
     /// Size of the broadcast buffer metadata trailer
     pub const TRAILER_LENGTH: IndexT = CACHE_LINE_LENGTH as IndexT * 2;
@@ -95,10 +98,10 @@ where
     pub fn new(buffer: A) -> Result<Self> {
         let capacity = buffer.capacity() - buffer_descriptor::TRAILER_LENGTH;
         buffer_descriptor::check_capacity(capacity)?;
+        let mask = capacity - 1;
 
         let latest_counter_index = capacity + buffer_descriptor::LATEST_COUNTER_OFFSET;
         let cursor = buffer.get_i64(latest_counter_index)?;
-        let mask = capacity - 1;
 
         Ok(BroadcastReceiver {
             buffer,
@@ -136,8 +139,8 @@ where
         let mut cursor: i64 = self.next_record;
 
         if tail > cursor {
-            // The way we set `record_offset` is slightly different from C++;
-            // Clippy was yelling at me, and I think this makes more sense.
+            // NOTE: C++ and Java clients do these first lines slightly differently. As far
+            // as I can tell, this is structurally equivalent, and Clippy yells less at me.
             if !self._validate(cursor) {
                 self.lapped_count.fetch_add(1, Ordering::SeqCst);
                 cursor = self.buffer.get_i64(self.latest_counter_index)?;
