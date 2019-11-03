@@ -210,16 +210,18 @@ where
     }
 
     /// Read messages from the ring buffer and dispatch to `handler`, up to `message_count_limit`
-    pub fn read<F>(&mut self, mut handler: F, message_count_limit: usize) -> Result<usize>
+    ///
+    /// NOTE: The C++ API will stop reading and clean up if an exception is thrown in the handler
+    /// function; by contrast, the Rust API makes no attempt to catch panics and currently
+    /// has no way of stopping reading once started.
+    // QUESTION: Is there a better way to handle dispatching the handler function?
+    // We can't give it a `&dyn AtomicBuffer` because of the monomorphized generic functions,
+    // don't know if having a separate handler trait would be helpful.
+    pub fn read_n<F>(&mut self, mut handler: F, message_count_limit: usize) -> Result<usize>
     where
         F: FnMut(i32, &A, IndexT, IndexT) -> (),
     {
-        // QUESTION: Should I implement the `get_i64` method that C++ uses?
-        // UNWRAP: Bounds check performed during buffer creation
-        let head = self
-            .buffer
-            .get_i64_volatile(self.head_position_index)
-            .unwrap();
+        let head = self.buffer.get_i64(self.head_position_index)?;
         let head_index = (head & i64::from(self.capacity - 1)) as i32;
         let contiguous_block_length = self.capacity - head_index;
         let mut messages_read = 0;
@@ -262,6 +264,9 @@ where
         // in Rust (since the main operation also needs mutable access to self).
         let mut cleanup = || {
             if bytes_read != 0 {
+                // UNWRAP: Need to justify this one.
+                // Should be safe because we've already done length checks, but I want
+                // to spend some more time thinking about it.
                 self.buffer
                     .set_memory(head_index, bytes_read as usize, 0)
                     .unwrap();
@@ -276,6 +281,18 @@ where
         })?;
 
         Ok(messages_read)
+    }
+
+    /// Read messages from the ring buffer and dispatch to `handler`, up to `message_count_limit`
+    ///
+    /// NOTE: The C++ API will stop reading and clean up if an exception is thrown in the handler
+    /// function; by contrast, the Rust API makes no attempt to catch panics and currently
+    /// has no way of stopping reading once started.
+    pub fn read<F>(&mut self, handler: F) -> Result<usize>
+    where
+        F: FnMut(i32, &A, IndexT, IndexT) -> (),
+    {
+        self.read_n(handler, usize::max_value())
     }
 
     /// Claim capacity for a specific message size in the ring buffer. Returns the offset/index
@@ -390,10 +407,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::client::concurrent::ringbuffer::{record_descriptor, ManyToOneRingBuffer};
+    use crate::client::concurrent::ringbuffer::ManyToOneRingBuffer;
     use crate::client::concurrent::AtomicBuffer;
-    use crate::util::IndexT;
-    use std::mem::size_of;
 
     const BUFFER_SIZE: usize = 512 + super::buffer_descriptor::TRAILER_LENGTH as usize;
 
@@ -428,57 +443,5 @@ mod tests {
 
         let write_start = ring_buf.claim_capacity(16).unwrap();
         assert_eq!(write_start, 16);
-    }
-
-    #[test]
-    fn read_basic() {
-        // Similar to write basic, put something into the buffer
-        let mut ring_buffer =
-            ManyToOneRingBuffer::new(vec![0u8; BUFFER_SIZE]).expect("Invalid buffer size");
-
-        let source_buffer = &mut [12u8, 0, 0, 0, 0, 0, 0, 0][..];
-        let source_len = source_buffer.len() as IndexT;
-        let type_id = 1;
-        ring_buffer
-            .write(type_id, &source_buffer, 0, source_len)
-            .unwrap();
-
-        // Now we can start the actual read process
-        let c = |_, buf: &Vec<u8>, offset, _| assert_eq!(buf.get_i64_volatile(offset).unwrap(), 12);
-        ring_buffer.read(c, 1).unwrap();
-
-        // Make sure that the buffer was zeroed on finish
-        for i in (0..record_descriptor::ALIGNMENT * 1).step_by(4) {
-            assert_eq!(ring_buffer.get_i32_volatile(i).unwrap(), 0);
-        }
-    }
-
-    #[test]
-    fn read_multiple() {
-        let mut ring_buffer =
-            ManyToOneRingBuffer::new(vec![0u8; BUFFER_SIZE]).expect("Invalid buffer size");
-
-        let source_buffer = &mut [12u8, 0, 0, 0, 0, 0, 0, 0][..];
-        let source_len = source_buffer.len() as IndexT;
-        let type_id = 1;
-        ring_buffer
-            .write(type_id, &source_buffer, 0, source_len)
-            .unwrap();
-        ring_buffer
-            .write(type_id, &source_buffer, 0, source_len)
-            .unwrap();
-
-        let mut msg_count = 0;
-        let c = |_, buf: &Vec<u8>, offset, _| {
-            msg_count += 1;
-            assert_eq!(buf.get_i64_volatile(offset).unwrap(), 12);
-        };
-        ring_buffer.read(c, 2).unwrap();
-        assert_eq!(msg_count, 2);
-
-        // Make sure that the buffer was zeroed on finish
-        for i in (0..record_descriptor::ALIGNMENT * 2).step_by(4) {
-            assert_eq!(ring_buffer.get_i32_volatile(i).unwrap(), 0);
-        }
     }
 }

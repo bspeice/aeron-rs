@@ -257,6 +257,18 @@ pub trait AtomicBuffer: Deref<Target = [u8]> + DerefMut<Target = [u8]> {
         self.write_volatile::<i32>(offset, value)
     }
 
+    /// Write an `i32` value into the buffer without performing any synchronization
+    ///
+    /// ```rust
+    /// # use aeron_rs::client::concurrent::AtomicBuffer;
+    /// let mut buffer = vec![0u8; 5];
+    /// buffer.put_i32(0, 255 + 1);
+    /// assert_eq!(buffer.get_i32(1), Ok(1));
+    /// ```
+    fn put_i32(&mut self, offset: IndexT, value: i32) -> Result<()> {
+        self.overlay_mut::<i32>(offset).map(|i| *i = value)
+    }
+
     /// Return the total number of bytes in this buffer
     fn capacity(&self) -> IndexT {
         self.len() as IndexT

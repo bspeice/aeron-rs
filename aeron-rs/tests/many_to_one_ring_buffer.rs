@@ -198,3 +198,184 @@ fn should_insert_padding_record_plus_message_on_buffer_wrap_with_head_equal_to_t
         Ok((tail + aligned_record_length + record_descriptor::ALIGNMENT) as i64)
     );
 }
+
+#[test]
+fn should_read_single_message() {
+    let length: IndexT = 8;
+    let head: IndexT = 0;
+    let record_length: IndexT = length + record_descriptor::HEADER_LENGTH;
+    let aligned_record_length: IndexT = align(
+        record_length as usize,
+        record_descriptor::ALIGNMENT as usize,
+    ) as IndexT;
+    let tail: IndexT = aligned_record_length;
+
+    let mut buffer = ManyToOneRingBuffer::new(vec![0u8; BUFFER_SZ]).unwrap();
+    buffer.put_i64(HEAD_COUNTER_INDEX, head as i64).unwrap();
+    buffer.put_i64(TAIL_COUNTER_INDEX, tail as i64).unwrap();
+
+    buffer
+        .put_i32(record_descriptor::type_offset(0), MSG_TYPE_ID)
+        .unwrap();
+    buffer
+        .put_i32(record_descriptor::length_offset(0), record_length)
+        .unwrap();
+
+    let mut times_called = 0;
+    let closure = |_, _buf: &Vec<u8>, _, _| {
+        times_called += 1;
+    };
+    let messages_read = buffer.read(closure);
+
+    assert_eq!(messages_read, Ok(1));
+    assert_eq!(times_called, 1);
+    assert_eq!(
+        buffer.get_i64(HEAD_COUNTER_INDEX),
+        Ok((head + aligned_record_length) as i64)
+    );
+
+    for i in (0..record_descriptor::ALIGNMENT).step_by(4) {
+        assert_eq!(buffer.get_i32(i), Ok(0));
+    }
+}
+
+#[test]
+fn should_not_read_single_message_part_way_through_writing() {
+    let length: IndexT = 8;
+    let head: IndexT = 0;
+    let record_length: IndexT = length + record_descriptor::HEADER_LENGTH;
+    let aligned_record_length: IndexT = align(
+        record_length as usize,
+        record_descriptor::ALIGNMENT as usize,
+    ) as IndexT;
+    let end_tail: IndexT = aligned_record_length;
+
+    let mut buffer = ManyToOneRingBuffer::new(vec![0u8; BUFFER_SZ]).unwrap();
+    buffer.put_i64(TAIL_COUNTER_INDEX, end_tail as i64).unwrap();
+    buffer
+        .put_i32(record_descriptor::type_offset(0), MSG_TYPE_ID)
+        .unwrap();
+    buffer
+        .put_i32(record_descriptor::length_offset(0), -record_length)
+        .unwrap();
+
+    let mut times_called = 0;
+    let closure = |_, _buf: &Vec<u8>, _, _| {
+        times_called += 1;
+    };
+    let messages_read = buffer.read(closure);
+
+    assert_eq!(messages_read, Ok(0));
+    assert_eq!(times_called, 0);
+    assert_eq!(buffer.get_i64(HEAD_COUNTER_INDEX), Ok(head as i64));
+}
+
+#[test]
+fn should_read_two_messages() {
+    let length: IndexT = 8;
+    let head: IndexT = 0;
+    let record_length: IndexT = length + record_descriptor::HEADER_LENGTH;
+    let aligned_record_length: IndexT = align(
+        record_length as usize,
+        record_descriptor::ALIGNMENT as usize,
+    ) as IndexT;
+    let tail: IndexT = aligned_record_length * 2;
+
+    let mut buffer = ManyToOneRingBuffer::new(vec![0u8; BUFFER_SZ]).unwrap();
+    buffer.put_i64(HEAD_COUNTER_INDEX, head as i64).unwrap();
+    buffer.put_i64(TAIL_COUNTER_INDEX, tail as i64).unwrap();
+
+    buffer
+        .put_i32(record_descriptor::type_offset(0), MSG_TYPE_ID)
+        .unwrap();
+    buffer
+        .put_i32(record_descriptor::length_offset(0), record_length)
+        .unwrap();
+
+    buffer
+        .put_i32(
+            record_descriptor::type_offset(0 + aligned_record_length),
+            MSG_TYPE_ID,
+        )
+        .unwrap();
+    buffer
+        .put_i32(
+            record_descriptor::length_offset(0 + aligned_record_length),
+            record_length,
+        )
+        .unwrap();
+
+    let mut times_called = 0;
+    let closure = |_, _buf: &Vec<u8>, _, _| {
+        times_called += 1;
+    };
+    let messages_read = buffer.read(closure);
+
+    assert_eq!(messages_read, Ok(2));
+    assert_eq!(times_called, 2);
+    assert_eq!(
+        buffer.get_i64(HEAD_COUNTER_INDEX),
+        Ok((head + aligned_record_length * 2) as i64)
+    );
+
+    for i in (0..record_descriptor::ALIGNMENT * 2).step_by(4) {
+        assert_eq!(buffer.get_i32(i), Ok(0));
+    }
+}
+
+#[test]
+fn should_limit_read_of_messages() {
+    let length: IndexT = 8;
+    let head: IndexT = 0;
+    let record_length: IndexT = length + record_descriptor::HEADER_LENGTH;
+    let aligned_record_length: IndexT = align(
+        record_length as usize,
+        record_descriptor::ALIGNMENT as usize,
+    ) as IndexT;
+    let tail: IndexT = aligned_record_length * 2;
+
+    let mut buffer = ManyToOneRingBuffer::new(vec![0u8; BUFFER_SZ]).unwrap();
+    buffer.put_i64(HEAD_COUNTER_INDEX, head as i64).unwrap();
+    buffer.put_i64(TAIL_COUNTER_INDEX, tail as i64).unwrap();
+
+    buffer
+        .put_i32(record_descriptor::type_offset(0), MSG_TYPE_ID)
+        .unwrap();
+    buffer
+        .put_i32(record_descriptor::length_offset(0), record_length)
+        .unwrap();
+
+    buffer
+        .put_i32(
+            record_descriptor::type_offset(0 + aligned_record_length),
+            MSG_TYPE_ID,
+        )
+        .unwrap();
+    buffer
+        .put_i32(
+            record_descriptor::length_offset(0 + aligned_record_length),
+            record_length,
+        )
+        .unwrap();
+
+    let mut times_called = 0;
+    let closure = |_, _buf: &Vec<u8>, _, _| {
+        times_called += 1;
+    };
+    let messages_read = buffer.read_n(closure, 1);
+
+    assert_eq!(messages_read, Ok(1));
+    assert_eq!(times_called, 1);
+    assert_eq!(
+        buffer.get_i64(HEAD_COUNTER_INDEX),
+        Ok((head + aligned_record_length) as i64)
+    );
+
+    for i in (0..record_descriptor::ALIGNMENT).step_by(4) {
+        assert_eq!(buffer.get_i32(i), Ok(0));
+    }
+    assert_eq!(
+        buffer.get_i32(record_descriptor::length_offset(aligned_record_length)),
+        Ok(record_length)
+    );
+}
