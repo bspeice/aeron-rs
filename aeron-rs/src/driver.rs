@@ -1,4 +1,4 @@
-//! Bindings for the C Media Driver
+//! High-level bindings for the C Media Driver
 
 use std::ffi::{CStr, CString};
 use std::path::Path;

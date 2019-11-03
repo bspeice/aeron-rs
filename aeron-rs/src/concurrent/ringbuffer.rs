@@ -1,5 +1,5 @@
 //! Ring buffer wrapper for communicating with the Media Driver
-use crate::client::concurrent::AtomicBuffer;
+use crate::concurrent::AtomicBuffer;
 use crate::util::bit::align;
 use crate::util::{bit, AeronError, IndexT, Result};
 use std::ops::{Deref, DerefMut};
@@ -401,8 +401,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::client::concurrent::ringbuffer::ManyToOneRingBuffer;
-    use crate::client::concurrent::AtomicBuffer;
+    use crate::concurrent::ringbuffer::ManyToOneRingBuffer;
+    use crate::concurrent::AtomicBuffer;
 
     const BUFFER_SIZE: usize = 512 + super::buffer_descriptor::TRAILER_LENGTH as usize;
 

@@ -4,8 +4,9 @@
 #[cfg(target_endian = "big")]
 compile_error!("Aeron is only supported on little-endian architectures");
 
-pub mod client;
-pub mod control_protocol;
+pub mod cnc_descriptor;
+pub mod concurrent;
+pub mod context;
 pub mod driver;
 pub mod util;
 

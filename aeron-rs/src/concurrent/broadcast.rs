@@ -1,6 +1,6 @@
 //! Read messages that are broadcast from the media driver; this is the primary means
 //! of receiving data.
-use crate::client::concurrent::AtomicBuffer;
+use crate::concurrent::AtomicBuffer;
 use crate::util::bit::align;
 use crate::util::{AeronError, IndexT, Result};
 use std::sync::atomic::{AtomicI64, Ordering};
