@@ -1,0 +1,185 @@
+//! Read messages that are broadcast from the media driver; this is the primary means
+//! of receiving data.
+use crate::client::concurrent::AtomicBuffer;
+use crate::util::bit::align;
+use crate::util::{IndexT, Result};
+use std::sync::atomic::{AtomicI64, Ordering};
+
+/// Description of the broadcast buffer schema
+pub mod buffer_descriptor {
+    use crate::util::bit::{is_power_of_two, CACHE_LINE_LENGTH};
+    use crate::util::{AeronError, IndexT, Result};
+    use std::mem::size_of;
+
+    pub(super) const TAIL_INTENT_COUNTER_OFFSET: IndexT = 0;
+    pub(super) const TAIL_COUNTER_OFFSET: IndexT =
+        TAIL_INTENT_COUNTER_OFFSET + size_of::<i64>() as IndexT;
+    pub(super) const LATEST_COUNTER_OFFSET: IndexT =
+        TAIL_COUNTER_OFFSET + size_of::<i64>() as IndexT;
+
+    /// Size of the broadcast buffer metadata trailer
+    pub const TRAILER_LENGTH: IndexT = CACHE_LINE_LENGTH as IndexT * 2;
+
+    pub(super) fn check_capacity(capacity: IndexT) -> Result<()> {
+        // QUESTION: Why does C++ throw IllegalState here?
+        // Would've expected it to throw IllegalArgument like ring buffer
+        if is_power_of_two(capacity) {
+            Ok(())
+        } else {
+            Err(AeronError::IllegalArgument)
+        }
+    }
+}
+
+/// Broadcast buffer message header
+// QUESTION: Isn't this the same as the ring buffer descriptor?
+// Why not consolidate them?
+pub mod record_descriptor {
+    use crate::util::IndexT;
+
+    /// Message type to indicate a record used only
+    /// for padding the buffer
+    pub const PADDING_MSG_TYPE_ID: i32 = -1;
+
+    /// Offset from the beginning of a record to its length
+    pub const LENGTH_OFFSET: IndexT = 0;
+
+    /// Offset from the beginning of a record to its type
+    pub const TYPE_OFFSET: IndexT = 4;
+
+    /// Total header length for each record
+    pub const HEADER_LENGTH: IndexT = 8;
+
+    /// Alignment for all broadcast records
+    pub const RECORD_ALIGNMENT: IndexT = HEADER_LENGTH;
+
+    /// Retrieve the byte offset for a record's length field given the record start
+    pub fn length_offset(record_offset: IndexT) -> IndexT {
+        record_offset + LENGTH_OFFSET
+    }
+
+    /// Retrieve the byte offset for a record's type field given the record start
+    pub fn type_offset(record_offset: IndexT) -> IndexT {
+        record_offset + TYPE_OFFSET
+    }
+
+    /// Retrieve the byte offset for a record's message given the record start
+    pub fn msg_offset(record_offset: IndexT) -> IndexT {
+        record_offset + HEADER_LENGTH
+    }
+}
+
+/// Receive messages from a transmission stream
+pub struct BroadcastReceiver<A>
+where
+    A: AtomicBuffer,
+{
+    buffer: A,
+    capacity: IndexT,
+    mask: IndexT,
+    tail_intent_counter_index: IndexT,
+    tail_counter_index: IndexT,
+    latest_counter_index: IndexT,
+    record_offset: IndexT,
+    cursor: i64,
+    next_record: i64,
+    lapped_count: AtomicI64,
+}
+
+impl<A> BroadcastReceiver<A>
+where
+    A: AtomicBuffer,
+{
+    /// Create a new receiver backed by `buffer`
+    pub fn new(buffer: A) -> Result<Self> {
+        let capacity = buffer.capacity() - buffer_descriptor::TRAILER_LENGTH;
+        buffer_descriptor::check_capacity(capacity)?;
+
+        let latest_counter_index = capacity + buffer_descriptor::LATEST_COUNTER_OFFSET;
+        let cursor = buffer.get_i64(latest_counter_index)?;
+        let mask = capacity - 1;
+
+        Ok(BroadcastReceiver {
+            buffer,
+            capacity,
+            mask,
+            tail_intent_counter_index: capacity + buffer_descriptor::TAIL_INTENT_COUNTER_OFFSET,
+            tail_counter_index: capacity + buffer_descriptor::TAIL_COUNTER_OFFSET,
+            latest_counter_index,
+            record_offset: (cursor as i32) & mask,
+            cursor,
+            next_record: cursor,
+            lapped_count: AtomicI64::new(0),
+        })
+    }
+
+    /// Get the total capacity of this broadcast receiver
+    pub fn capacity(&self) -> IndexT {
+        self.capacity
+    }
+
+    /// Get the number of times the transmitter has lapped this receiver. Each lap
+    /// represents at least a buffer's worth of lost data.
+    pub fn lapped_count(&self) -> i64 {
+        // QUESTION: C++ just uses `std::atomic<long>`, what are the ordering semantics?
+        // For right now I'm just assuming it's sequentially consistent
+        self.lapped_count.load(Ordering::SeqCst)
+    }
+
+    /// Non-blocking receive of next message from the transmission stream.
+    /// If loss has occurred, `lapped_count` will be incremented. Returns `true`
+    /// if the next transmission is available, `false` otherwise.
+    pub fn receive_next(&mut self) -> Result<bool> {
+        let mut is_available = false;
+        let tail: i64 = self.buffer.get_i64_volatile(self.tail_counter_index)?;
+        let mut cursor: i64 = self.next_record;
+
+        if tail > cursor {
+            // The way we set `record_offset` is slightly different from C++;
+            // Clippy was yelling at me, and I think this makes more sense.
+            if !self.validate(cursor) {
+                self.lapped_count.fetch_add(1, Ordering::SeqCst);
+                cursor = self.buffer.get_i64(self.latest_counter_index)?;
+            }
+            let mut record_offset = (cursor as i32) & self.mask;
+
+            self.cursor = cursor;
+            self.next_record = cursor
+                + align(
+                    self.buffer
+                        .get_i32(record_descriptor::length_offset(record_offset))?
+                        as usize,
+                    record_descriptor::RECORD_ALIGNMENT as usize,
+                ) as i64;
+
+            if record_descriptor::PADDING_MSG_TYPE_ID
+                == self
+                    .buffer
+                    .get_i32(record_descriptor::type_offset(record_offset))?
+            {
+                record_offset = 0;
+                self.cursor = self.next_record;
+                self.next_record += align(
+                    self.buffer
+                        .get_i32(record_descriptor::length_offset(record_offset))?
+                        as usize,
+                    record_descriptor::RECORD_ALIGNMENT as usize,
+                ) as i64;
+            }
+
+            self.record_offset = record_offset;
+            is_available = true;
+        }
+
+        Ok(is_available)
+    }
+
+    fn validate(&self, cursor: i64) -> bool {
+        // UNWRAP: Length checks performed during initialization
+        (cursor + i64::from(self.capacity))
+            > self
+                .buffer
+                .get_i64_volatile(self.tail_intent_counter_index)
+                .unwrap()
+    }
+}

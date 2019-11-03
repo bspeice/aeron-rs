@@ -4,9 +4,8 @@ use crate::util::bit::align;
 use crate::util::{bit, AeronError, IndexT, Result};
 use std::ops::{Deref, DerefMut};
 
-/// Description of the Ring Buffer schema.
+/// Description of the ring buffer schema
 pub mod buffer_descriptor {
-    use crate::client::concurrent::AtomicBuffer;
     use crate::util::bit::{is_power_of_two, CACHE_LINE_LENGTH};
     use crate::util::AeronError::IllegalArgument;
     use crate::util::{IndexT, Result};
@@ -31,13 +30,9 @@ pub mod buffer_descriptor {
 
     /// Verify the capacity of a buffer is legal for use as a ring buffer.
     /// Returns the actual capacity excluding ring buffer metadata.
-    pub fn check_capacity<A>(buffer: &A) -> Result<IndexT>
-    where
-        A: AtomicBuffer,
-    {
-        let capacity = (buffer.len() - TRAILER_LENGTH as usize) as IndexT;
+    pub fn check_capacity(capacity: IndexT) -> Result<()> {
         if is_power_of_two(capacity) {
-            Ok(capacity)
+            Ok(())
         } else {
             Err(IllegalArgument)
         }
@@ -138,7 +133,9 @@ where
 {
     /// Create a many-to-one ring buffer from an underlying atomic buffer.
     pub fn new(buffer: A) -> Result<Self> {
-        buffer_descriptor::check_capacity(&buffer).map(|capacity| ManyToOneRingBuffer {
+        let capacity = buffer.capacity() - buffer_descriptor::TRAILER_LENGTH;
+        buffer_descriptor::check_capacity(capacity)?;
+        Ok(ManyToOneRingBuffer {
             buffer,
             capacity,
             max_msg_length: capacity / 8,
