@@ -12,6 +12,14 @@ use std::ptr::{read_volatile, write_volatile};
 use memmap::MmapMut;
 use std::ops::{Deref, DerefMut};
 
+fn bounds_check_slice(slice: &[u8], offset: IndexT, size: IndexT) -> Result<()> {
+    if offset < 0 || size < 0 || slice.len() as IndexT - offset < size {
+        Err(AeronError::OutOfBounds)
+    } else {
+        Ok(())
+    }
+}
+
 /// Atomic operations on slices of memory
 pub trait AtomicBuffer: Deref<Target = [u8]> + DerefMut<Target = [u8]> {
     /// Check that there are at least `size` bytes of memory available
@@ -27,11 +35,7 @@ pub trait AtomicBuffer: Deref<Target = [u8]> + DerefMut<Target = [u8]> {
     /// assert!(buffer.bounds_check(-1, 8).is_err());
     /// ```
     fn bounds_check(&self, offset: IndexT, size: IndexT) -> Result<()> {
-        if offset < 0 || size < 0 || self.deref().len() as IndexT - offset < size {
-            Err(AeronError::OutOfBounds)
-        } else {
-            Ok(())
-        }
+        bounds_check_slice(self.deref(), offset, size)
     }
 
     /// Overlay a struct on a buffer.
@@ -197,6 +201,24 @@ pub trait AtomicBuffer: Deref<Target = [u8]> + DerefMut<Target = [u8]> {
     /// ```
     fn put_i64(&mut self, offset: IndexT, value: i64) -> Result<()> {
         self.overlay_mut::<i64>(offset).map(|i| *i = value)
+    }
+
+    fn put_slice(
+        &mut self,
+        index: IndexT,
+        source: &[u8],
+        source_index: IndexT,
+        len: IndexT,
+    ) -> Result<()> {
+        self.bounds_check(index, len)?;
+        bounds_check_slice(source, source_index, len)?;
+
+        let index = index as usize;
+        let source_index = source_index as usize;
+        let len = len as usize;
+
+        self[index..index + len].copy_from_slice(&source[source_index..source_index + len]);
+        Ok(())
     }
 
     /// Write the contents of one buffer to another. Does not perform any synchronization

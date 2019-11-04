@@ -1,13 +1,15 @@
 //! [Aeron](https://github.com/real-logic/aeron) client for Rust
-#![deny(missing_docs)]
 
 #[cfg(target_endian = "big")]
 compile_error!("Aeron is only supported on little-endian architectures");
 
 pub mod cnc_descriptor;
+pub mod command;
 pub mod concurrent;
 pub mod context;
+pub mod control_protocol;
 pub mod driver;
+pub mod driver_proxy;
 pub mod util;
 
 const fn sematic_version_compose(major: u8, minor: u8, patch: u8) -> i32 {

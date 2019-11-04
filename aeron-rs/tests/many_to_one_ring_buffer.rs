@@ -1,7 +1,5 @@
 /// Tests based on the C++ tests included with Aeron
-use aeron_rs::concurrent::ringbuffer::{
-    buffer_descriptor, record_descriptor, ManyToOneRingBuffer,
-};
+use aeron_rs::concurrent::ringbuffer::{buffer_descriptor, record_descriptor, ManyToOneRingBuffer};
 use aeron_rs::concurrent::AtomicBuffer;
 use aeron_rs::util::bit::align;
 use aeron_rs::util::IndexT;
