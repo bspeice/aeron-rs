@@ -11,20 +11,30 @@ where
     _phantom: PhantomData<S>,
 }
 
+pub struct Unchecked;
+
+impl<A> Flyweight<A, Unchecked>
+where
+    A: AtomicBuffer,
+{
+    pub fn new<S>(buffer: A, offset: IndexT) -> Result<Flyweight<A, S>>
+    where
+        S: Sized
+    {
+        buffer.overlay::<S>(offset)?;
+        Ok(Flyweight {
+            buffer,
+            base_offset: offset,
+            _phantom: PhantomData
+        })
+    }
+}
+
 impl<A, S> Flyweight<A, S>
 where
     A: AtomicBuffer,
     S: Sized,
 {
-    pub fn new(buffer: A, offset: IndexT) -> Result<Flyweight<A, S>> {
-        buffer.overlay::<S>(offset)?;
-        Ok(Flyweight {
-            buffer,
-            base_offset: offset,
-            _phantom: PhantomData,
-        })
-    }
-
     pub(crate) fn get_struct(&self) -> &S {
         // UNWRAP: Bounds check performed during initialization
         self.buffer.overlay::<S>(self.base_offset).unwrap()

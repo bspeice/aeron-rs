@@ -36,9 +36,8 @@ where
     pub fn terminate_driver(&mut self, _token_buffer: Option<&[u8]>) -> Result<()> {
         let _client_id = self.client_id;
         self.write_command_to_driver(|buffer: &mut [u8], _length: &mut IndexT| {
-            // FIXME: This method signature is ugly.
             // UNWRAP: Buffer from `write_command` guaranteed to be long enough for `TerminateDriverDefn`
-            let _request: Flyweight<_, TerminateDriverDefn> = Flyweight::new(buffer, 0).unwrap();
+            let _request = Flyweight::new::<TerminateDriverDefn>(buffer, 0).unwrap();
 
             // FIXME: Uncommenting this causes termination to not succeed
             /*
