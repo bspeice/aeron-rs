@@ -71,7 +71,7 @@ where
         if token_length > 0 {
             // FIXME: Unwrap is unjustified here
             // Currently just assume that people are going to be nice about the token buffer
-            // and not oversize it.
+            // and not oversize it. C++ relies on throwing an exception if bounds are violated.
             self.buffer
                 .put_slice(
                     size_of::<TerminateDriverDefn>() as IndexT,
