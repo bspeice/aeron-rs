@@ -12,13 +12,21 @@ use std::ptr::{read_volatile, write_volatile};
 use memmap::MmapMut;
 use std::ops::{Deref, DerefMut};
 
+fn bounds_check_slice(slice: &[u8], offset: IndexT, size: IndexT) -> Result<()> {
+    if offset < 0 || size < 0 || slice.len() as IndexT - offset < size {
+        Err(AeronError::OutOfBounds)
+    } else {
+        Ok(())
+    }
+}
+
 /// Atomic operations on slices of memory
 pub trait AtomicBuffer: Deref<Target = [u8]> + DerefMut<Target = [u8]> {
     /// Check that there are at least `size` bytes of memory available
     /// beginning at some offset.
     ///
     /// ```rust
-    /// # use aeron_rs::client::concurrent::AtomicBuffer;
+    /// # use aeron_rs::concurrent::AtomicBuffer;
     ///
     /// let buffer = &mut [0u8; 8][..];
     /// assert!(buffer.bounds_check(0, 8).is_ok());
@@ -27,11 +35,7 @@ pub trait AtomicBuffer: Deref<Target = [u8]> + DerefMut<Target = [u8]> {
     /// assert!(buffer.bounds_check(-1, 8).is_err());
     /// ```
     fn bounds_check(&self, offset: IndexT, size: IndexT) -> Result<()> {
-        if offset < 0 || size < 0 || self.deref().len() as IndexT - offset < size {
-            Err(AeronError::OutOfBounds)
-        } else {
-            Ok(())
-        }
+        bounds_check_slice(self.deref(), offset, size)
     }
 
     /// Overlay a struct on a buffer.
@@ -39,7 +43,7 @@ pub trait AtomicBuffer: Deref<Target = [u8]> + DerefMut<Target = [u8]> {
     /// NOTE: Has the potential to cause undefined behavior if alignment is incorrect.
     ///
     /// ```rust
-    /// # use aeron_rs::client::concurrent::AtomicBuffer;
+    /// # use aeron_rs::concurrent::AtomicBuffer;
     /// # use std::sync::atomic::{AtomicI64, Ordering};
     /// let buffer = &mut [0u8; 9][..];
     ///
@@ -80,7 +84,7 @@ pub trait AtomicBuffer: Deref<Target = [u8]> + DerefMut<Target = [u8]> {
     /// Overlay a struct on a buffer, and perform a volatile read
     ///
     /// ```rust
-    /// # use aeron_rs::client::concurrent::AtomicBuffer;
+    /// # use aeron_rs::concurrent::AtomicBuffer;
     /// let buffer = &mut [5, 0, 0, 0][..];
     ///
     /// let my_val: u32 = buffer.overlay_volatile::<u32>(0).unwrap();
@@ -100,7 +104,7 @@ pub trait AtomicBuffer: Deref<Target = [u8]> + DerefMut<Target = [u8]> {
     /// Perform a volatile write of a value over a buffer
     ///
     /// ```rust
-    /// # use aeron_rs::client::concurrent::AtomicBuffer;
+    /// # use aeron_rs::concurrent::AtomicBuffer;
     /// let mut buffer = &mut [0, 0, 0, 0][..];
     ///
     /// let value: u32 = 24;
@@ -121,7 +125,7 @@ pub trait AtomicBuffer: Deref<Target = [u8]> + DerefMut<Target = [u8]> {
     /// Perform an atomic fetch and add of a 64-bit value
     ///
     /// ```rust
-    /// # use aeron_rs::client::concurrent::AtomicBuffer;
+    /// # use aeron_rs::concurrent::AtomicBuffer;
     /// let mut buf = vec![0u8; 8];
     /// assert_eq!(buf.get_and_add_i64(0, 1), Ok(0));
     /// assert_eq!(buf.get_and_add_i64(0, 1), Ok(1));
@@ -135,7 +139,7 @@ pub trait AtomicBuffer: Deref<Target = [u8]> + DerefMut<Target = [u8]> {
     /// if the update was successful, and `Ok(false)` if the update failed.
     ///
     /// ```rust
-    /// # use aeron_rs::client::concurrent::AtomicBuffer;
+    /// # use aeron_rs::concurrent::AtomicBuffer;
     /// let mut buf = &mut [0u8; 8][..];
     /// // Set value to 1
     /// buf.get_and_add_i64(0, 1).unwrap();
@@ -161,7 +165,7 @@ pub trait AtomicBuffer: Deref<Target = [u8]> + DerefMut<Target = [u8]> {
     /// Perform a volatile read of an `i64` value
     ///
     /// ```rust
-    /// # use aeron_rs::client::concurrent::AtomicBuffer;
+    /// # use aeron_rs::concurrent::AtomicBuffer;
     /// let buffer = vec![12u8, 0, 0, 0, 0, 0, 0, 0];
     /// assert_eq!(buffer.get_i64_volatile(0), Ok(12));
     /// ```
@@ -178,7 +182,7 @@ pub trait AtomicBuffer: Deref<Target = [u8]> + DerefMut<Target = [u8]> {
     /// Perform a volatile write of an `i64` value
     ///
     /// ```rust
-    /// # use aeron_rs::client::concurrent::AtomicBuffer;
+    /// # use aeron_rs::concurrent::AtomicBuffer;
     /// let mut buffer = vec![0u8; 8];
     /// buffer.put_i64_ordered(0, 12);
     /// assert_eq!(buffer.get_i64_volatile(0), Ok(12));
@@ -190,13 +194,32 @@ pub trait AtomicBuffer: Deref<Target = [u8]> + DerefMut<Target = [u8]> {
     /// Write an `i64` value into the buffer without performing any synchronization
     ///
     /// ```rust
-    /// # use aeron_rs::client::concurrent::AtomicBuffer;
+    /// # use aeron_rs::concurrent::AtomicBuffer;
     /// let mut buffer = vec![0u8; 8];
     /// buffer.put_i64(0, 12);
     /// assert_eq!(buffer.get_i64(0), Ok(12));
     /// ```
     fn put_i64(&mut self, offset: IndexT, value: i64) -> Result<()> {
         self.overlay_mut::<i64>(offset).map(|i| *i = value)
+    }
+
+    /// Write the contents of a byte slice to this buffer. Does not perform any synchronization
+    fn put_slice(
+        &mut self,
+        index: IndexT,
+        source: &[u8],
+        source_index: IndexT,
+        len: IndexT,
+    ) -> Result<()> {
+        self.bounds_check(index, len)?;
+        bounds_check_slice(source, source_index, len)?;
+
+        let index = index as usize;
+        let source_index = source_index as usize;
+        let len = len as usize;
+
+        self[index..index + len].copy_from_slice(&source[source_index..source_index + len]);
+        Ok(())
     }
 
     /// Write the contents of one buffer to another. Does not perform any synchronization
@@ -233,7 +256,7 @@ pub trait AtomicBuffer: Deref<Target = [u8]> + DerefMut<Target = [u8]> {
     /// Perform a volatile read of an `i32` from the buffer
     ///
     /// ```rust
-    /// # use aeron_rs::client::concurrent::AtomicBuffer;
+    /// # use aeron_rs::concurrent::AtomicBuffer;
     /// let buffer = vec![0, 12, 0, 0, 0];
     /// assert_eq!(buffer.get_i32_volatile(1), Ok(12));
     /// ```
@@ -249,7 +272,7 @@ pub trait AtomicBuffer: Deref<Target = [u8]> + DerefMut<Target = [u8]> {
     /// Perform a volatile write of an `i32` into the buffer
     ///
     /// ```rust
-    /// # use aeron_rs::client::concurrent::AtomicBuffer;
+    /// # use aeron_rs::concurrent::AtomicBuffer;
     /// let mut bytes = vec![0u8; 4];
     /// bytes.put_i32_ordered(0, 12);
     /// assert_eq!(bytes.get_i32_volatile(0), Ok(12));
@@ -261,7 +284,7 @@ pub trait AtomicBuffer: Deref<Target = [u8]> + DerefMut<Target = [u8]> {
     /// Write an `i32` value into the buffer without performing any synchronization
     ///
     /// ```rust
-    /// # use aeron_rs::client::concurrent::AtomicBuffer;
+    /// # use aeron_rs::concurrent::AtomicBuffer;
     /// let mut buffer = vec![0u8; 5];
     /// buffer.put_i32(0, 255 + 1);
     /// assert_eq!(buffer.get_i32(1), Ok(1));

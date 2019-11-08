@@ -1,5 +1,5 @@
 //! Ring buffer wrapper for communicating with the Media Driver
-use crate::client::concurrent::AtomicBuffer;
+use crate::concurrent::AtomicBuffer;
 use crate::util::bit::align;
 use crate::util::{bit, AeronError, IndexT, Result};
 use std::ops::{Deref, DerefMut};
@@ -24,6 +24,9 @@ pub mod buffer_descriptor {
     /// Offset of the correlation id counter, as measured in bytes past
     /// the start of the ring buffer metadata trailer.
     pub const CORRELATION_COUNTER_OFFSET: IndexT = (CACHE_LINE_LENGTH * 8) as IndexT;
+
+    /// Offset within the ring buffer trailer to the consumer heartbeat timestamp
+    pub const CONSUMER_HEARTBEAT_OFFSET: IndexT = (CACHE_LINE_LENGTH * 10) as IndexT;
 
     /// Total size of the ring buffer metadata trailer.
     pub const TRAILER_LENGTH: IndexT = (CACHE_LINE_LENGTH * 12) as IndexT;
@@ -125,6 +128,7 @@ where
     head_cache_position_index: IndexT,
     head_position_index: IndexT,
     correlation_id_counter_index: IndexT,
+    consumer_heartbeat_index: IndexT,
 }
 
 impl<A> ManyToOneRingBuffer<A>
@@ -143,6 +147,7 @@ where
             head_cache_position_index: capacity + buffer_descriptor::HEAD_CACHE_POSITION_OFFSET,
             head_position_index: capacity + buffer_descriptor::HEAD_POSITION_OFFSET,
             correlation_id_counter_index: capacity + buffer_descriptor::CORRELATION_COUNTER_OFFSET,
+            consumer_heartbeat_index: capacity + buffer_descriptor::CONSUMER_HEARTBEAT_OFFSET,
         })
     }
 
@@ -377,6 +382,15 @@ where
     pub fn max_msg_length(&self) -> IndexT {
         self.max_msg_length
     }
+
+    /// Return the last heartbeat timestamp associated with the consumer of this queue.
+    /// Timestamps are milliseconds since 1 Jan 1970, UTC.
+    pub fn consumer_heartbeat_time(&self) -> i64 {
+        // UNWRAP: Known-valid offset calculated during initialization
+        self.buffer
+            .get_i64_volatile(self.consumer_heartbeat_index)
+            .unwrap()
+    }
 }
 
 impl<A> Deref for ManyToOneRingBuffer<A>
@@ -401,8 +415,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::client::concurrent::ringbuffer::ManyToOneRingBuffer;
-    use crate::client::concurrent::AtomicBuffer;
+    use crate::concurrent::ringbuffer::ManyToOneRingBuffer;
+    use crate::concurrent::AtomicBuffer;
 
     const BUFFER_SIZE: usize = 512 + super::buffer_descriptor::TRAILER_LENGTH as usize;
 

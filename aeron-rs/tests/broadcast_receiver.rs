@@ -1,7 +1,5 @@
-use aeron_rs::client::concurrent::broadcast::{
-    buffer_descriptor, record_descriptor, BroadcastReceiver,
-};
-use aeron_rs::client::concurrent::AtomicBuffer;
+use aeron_rs::concurrent::broadcast::{buffer_descriptor, record_descriptor, BroadcastReceiver};
+use aeron_rs::concurrent::AtomicBuffer;
 use aeron_rs::util::bit::align;
 use aeron_rs::util::IndexT;
 
