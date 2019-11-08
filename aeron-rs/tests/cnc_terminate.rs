@@ -4,7 +4,6 @@ use aeron_rs::cnc_descriptor::MetaDataDefinition;
 use aeron_rs::concurrent::ringbuffer::ManyToOneRingBuffer;
 use aeron_rs::concurrent::AtomicBuffer;
 use aeron_rs::driver_proxy::DriverProxy;
-use aeron_rs::util::IndexT;
 use memmap::MmapOptions;
 use std::ffi::{c_void, CString};
 use std::fs::OpenOptions;

@@ -203,6 +203,7 @@ pub trait AtomicBuffer: Deref<Target = [u8]> + DerefMut<Target = [u8]> {
         self.overlay_mut::<i64>(offset).map(|i| *i = value)
     }
 
+    /// Write the contents of a byte slice to this buffer. Does not perform any synchronization
     fn put_slice(
         &mut self,
         index: IndexT,

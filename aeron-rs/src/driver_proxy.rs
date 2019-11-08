@@ -1,3 +1,4 @@
+//! High level API for issuing commands to the Media Driver
 use crate::command::flyweight::Flyweight;
 use crate::command::terminate_driver::TerminateDriverDefn;
 use crate::concurrent::ringbuffer::ManyToOneRingBuffer;
@@ -5,6 +6,7 @@ use crate::concurrent::AtomicBuffer;
 use crate::control_protocol::ClientCommand;
 use crate::util::{AeronError, IndexT, Result};
 
+/// High-level interface for issuing commands to a media driver
 pub struct DriverProxy<A>
 where
     A: AtomicBuffer,
@@ -17,6 +19,7 @@ impl<A> DriverProxy<A>
 where
     A: AtomicBuffer,
 {
+    /// Initialize a new driver proxy from a command-and-control "to driver" buffer
     pub fn new(to_driver: ManyToOneRingBuffer<A>) -> Self {
         let client_id = to_driver.next_correlation_id();
         DriverProxy {
@@ -25,14 +28,19 @@ where
         }
     }
 
-    pub fn time_of_last_driver_keepalive(&self) -> Result<i64> {
+    /// Retrieve the timestamp of the most recent driver heartbeat. Values are
+    /// milliseconds past 1 Jan 1970, UTC.
+    pub fn time_of_last_driver_keepalive(&self) -> i64 {
         self.to_driver.consumer_heartbeat_time()
     }
 
+    /// Get the unique identifier associated with this proxy.
     pub fn client_id(&self) -> i64 {
         self.client_id
     }
 
+    /// Request termination of the media driver. Optionally supply a payload on the request
+    /// that will be available to the driver.
     pub fn terminate_driver(&mut self, token_buffer: Option<&[u8]>) -> Result<()> {
         let client_id = self.client_id;
         self.write_command_to_driver(|buffer: &mut [u8], length: &mut IndexT| {

@@ -1,7 +1,10 @@
+//! Flyweight pattern implementation for messages to and from the media driver.
 use crate::concurrent::AtomicBuffer;
 use crate::util::{IndexT, Result};
 use std::marker::PhantomData;
 
+/// Flyweight holder object. Wrapper around an underlying `AtomicBuffer` and
+/// offset within that buffer that all future operations are relative to.
 pub struct Flyweight<A, S>
 where
     A: AtomicBuffer,
@@ -11,12 +14,17 @@ where
     _phantom: PhantomData<S>,
 }
 
+/// Marker struct.
+// We can't put this `new` method in the fully generic implementation because
+// Rust gets confused as to what type `S` should be.
 pub struct Unchecked;
 
 impl<A> Flyweight<A, Unchecked>
 where
     A: AtomicBuffer,
 {
+    /// Create a new flyweight object. Performs a bounds check on initialization
+    /// to ensure there is space available for `S`.
     #[allow(clippy::new_ret_no_self)]
     pub fn new<S>(buffer: A, offset: IndexT) -> Result<Flyweight<A, S>>
     where

@@ -1,3 +1,4 @@
+//! Utilities for wrapping the command-and-control protocol with a nicer API
 use aeron_driver_sys::*;
 
 /// Construct a C-compatible enum out of a set of constants.

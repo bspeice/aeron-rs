@@ -1,4 +1,5 @@
 //! [Aeron](https://github.com/real-logic/aeron) client for Rust
+#![deny(missing_docs)]
 
 #[cfg(target_endian = "big")]
 compile_error!("Aeron is only supported on little-endian architectures");

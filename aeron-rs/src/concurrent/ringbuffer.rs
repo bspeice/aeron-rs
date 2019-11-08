@@ -383,8 +383,13 @@ where
         self.max_msg_length
     }
 
-    pub fn consumer_heartbeat_time(&self) -> Result<i64> {
-        self.buffer.get_i64_volatile(self.consumer_heartbeat_index)
+    /// Return the last heartbeat timestamp associated with the consumer of this queue.
+    /// Timestamps are milliseconds since 1 Jan 1970, UTC.
+    pub fn consumer_heartbeat_time(&self) -> i64 {
+        // UNWRAP: Known-valid offset calculated during initialization
+        self.buffer
+            .get_i64_volatile(self.consumer_heartbeat_index)
+            .unwrap()
     }
 }
 
