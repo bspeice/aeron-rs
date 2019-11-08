@@ -65,4 +65,8 @@ where
         }
         self
     }
+
+    pub fn length(&self) -> IndexT {
+        size_of::<Self>() as IndexT + self.token_length()
+    }
 }

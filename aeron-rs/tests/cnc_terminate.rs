@@ -3,6 +3,7 @@ use aeron_rs::cnc_descriptor;
 use aeron_rs::cnc_descriptor::MetaDataDefinition;
 use aeron_rs::concurrent::ringbuffer::ManyToOneRingBuffer;
 use aeron_rs::concurrent::AtomicBuffer;
+use aeron_rs::driver_proxy::DriverProxy;
 use aeron_rs::util::IndexT;
 use memmap::MmapOptions;
 use std::ffi::{c_void, CString};
@@ -115,24 +116,11 @@ fn cnc_terminate() {
         .to_driver_buffer_length;
 
     let buffer_end = cnc_metadata_len + buffer_len as usize;
-    let mut ring_buffer = ManyToOneRingBuffer::new(&mut mmap[cnc_metadata_len..buffer_end])
+    let ring_buffer = ManyToOneRingBuffer::new(&mut mmap[cnc_metadata_len..buffer_end])
         .expect("Improperly sized buffer");
 
-    // 20 bytes: Client ID (8), correlation ID (8), token length (4)
-    let mut terminate_bytes = vec![0u8; 20];
-    let client_id = ring_buffer.next_correlation_id();
-    terminate_bytes.put_i64_ordered(0, client_id).unwrap();
-    terminate_bytes.put_i64_ordered(8, -1).unwrap();
-
-    let term_id: i32 = 0x0E;
-    ring_buffer
-        .write(
-            term_id,
-            &terminate_bytes,
-            0,
-            terminate_bytes.len() as IndexT,
-        )
-        .unwrap();
+    let mut driver_proxy = DriverProxy::new(ring_buffer);
+    driver_proxy.terminate_driver(None).unwrap();
 
     // Wait for the driver to finish
     // TODO: Timeout, and then set `RUNNING` manually

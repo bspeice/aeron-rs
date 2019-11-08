@@ -33,18 +33,15 @@ where
         self.client_id
     }
 
-    pub fn terminate_driver(&mut self, _token_buffer: Option<&[u8]>) -> Result<()> {
-        let _client_id = self.client_id;
-        self.write_command_to_driver(|buffer: &mut [u8], _length: &mut IndexT| {
+    pub fn terminate_driver(&mut self, token_buffer: Option<&[u8]>) -> Result<()> {
+        let client_id = self.client_id;
+        self.write_command_to_driver(|buffer: &mut [u8], length: &mut IndexT| {
             // UNWRAP: Buffer from `write_command` guaranteed to be long enough for `TerminateDriverDefn`
-            let _request = Flyweight::new::<TerminateDriverDefn>(buffer, 0).unwrap();
+            let mut request = Flyweight::new::<TerminateDriverDefn>(buffer, 0).unwrap();
 
-            // FIXME: Uncommenting this causes termination to not succeed
-            /*
             request.put_client_id(client_id).put_correlation_id(-1);
             token_buffer.map(|b| request.put_token_buffer(b));
-            *length = request.token_length();
-            */
+            *length = request.length();
 
             ClientCommand::TerminateDriver
         })

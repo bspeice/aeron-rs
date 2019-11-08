@@ -17,15 +17,16 @@ impl<A> Flyweight<A, Unchecked>
 where
     A: AtomicBuffer,
 {
+    #[allow(clippy::new_ret_no_self)]
     pub fn new<S>(buffer: A, offset: IndexT) -> Result<Flyweight<A, S>>
     where
-        S: Sized
+        S: Sized,
     {
         buffer.overlay::<S>(offset)?;
         Ok(Flyweight {
             buffer,
             base_offset: offset,
-            _phantom: PhantomData
+            _phantom: PhantomData,
         })
     }
 }
