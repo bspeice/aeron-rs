@@ -59,4 +59,14 @@ where
         self.buffer.bounds_check(offset as IndexT, 0)?;
         Ok(&self.buffer[offset..])
     }
+
+    pub(in crate::command) fn string_get(&self, offset: IndexT) -> Result<&str> {
+        self.buffer
+            .get_string((self.base_offset + offset) as IndexT)
+    }
+
+    pub(in crate::command) fn string_put(&mut self, offset: IndexT, value: &str) -> Result<i32> {
+        self.buffer
+            .put_string((self.base_offset + offset) as IndexT, value)
+    }
 }

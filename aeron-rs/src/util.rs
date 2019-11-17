@@ -18,6 +18,8 @@ pub enum AeronError {
     InsufficientCapacity,
     /// Indication that we have reached an invalid state and can't continue processing
     IllegalState,
+    /// Indication that a string is not encoded in UTF-8/ASCII format
+    UnknownEncoding,
 }
 
 /// Result type for operations in the Aeron client

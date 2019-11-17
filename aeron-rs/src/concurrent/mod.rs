@@ -11,6 +11,7 @@ use std::ptr::{read_volatile, write_volatile};
 
 use memmap::MmapMut;
 use std::ops::{Deref, DerefMut};
+use std::str::from_utf8;
 
 fn bounds_check_slice(slice: &[u8], offset: IndexT, size: IndexT) -> Result<()> {
     if offset < 0 || size < 0 || slice.len() as IndexT - offset < size {
@@ -296,6 +297,50 @@ pub trait AtomicBuffer: Deref<Target = [u8]> + DerefMut<Target = [u8]> {
     /// Return the total number of bytes in this buffer
     fn capacity(&self) -> IndexT {
         self.len() as IndexT
+    }
+
+    /// Fetch an ASCII/UTF-8 encoded string from the buffer, prefixed by a 32-bit length value.
+    ///
+    /// ```rust
+    /// # use aeron_rs::concurrent::AtomicBuffer;
+    /// # use std::mem::size_of;
+    /// # use aeron_rs::util::IndexT;
+    /// let mut buffer = vec![0u8; 10];
+    /// let message = [0x48, 0x65, 0x6C, 0x6C, 0x6F, 0x21];
+    /// buffer.put_i32(0, message.len() as IndexT);
+    /// buffer.put_slice(size_of::<i32>() as IndexT, &message[..], 0, message.len() as IndexT);
+    ///
+    /// assert_eq!(buffer.get_string(0), Ok("Hello!"));
+    /// ```
+    fn get_string(&self, offset: IndexT) -> Result<&str> {
+        let length = self.get_i32(offset)?;
+
+        let str_offset = offset + size_of::<i32>() as IndexT;
+        self.bounds_check(str_offset, length)?;
+
+        let start = str_offset as usize;
+        let end = start + length as usize;
+        let string = from_utf8(&self[start..end]).map_err(|_e| AeronError::UnknownEncoding)?;
+        Ok(string)
+    }
+
+    /// Write a string into the buffer, prefixed by a 32-bit length value. Returns the total
+    /// number of bytes written.
+    ///
+    /// ```rust
+    /// # use aeron_rs::concurrent::AtomicBuffer;
+    /// let mut buffer = vec![0u8; 10];
+    /// buffer.put_string(0, "Hello!");
+    /// assert_eq!(buffer.get_string(0), Ok("Hello!"));
+    /// ```
+    fn put_string(&mut self, offset: IndexT, value: &str) -> Result<i32> {
+        let length = value.len() as IndexT;
+        self.put_i32(offset, length)?;
+
+        let str_offset = offset + size_of::<i32>() as IndexT;
+        self.put_slice(str_offset, value.as_bytes(), 0, length)?;
+
+        Ok(size_of::<i32>() as i32 + length)
     }
 }
 

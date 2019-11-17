@@ -5,13 +5,25 @@ use crate::concurrent::AtomicBuffer;
 use crate::util::{IndexT, Result};
 use std::mem::size_of;
 
-/// Raw command to terminate a driver. The `token_length` describes the length
-/// of a buffer immediately trailing this struct definition and part of the
-/// same message.
+/// Command message flyweight to ask the driver process to terminate
+///
+/// ```text
+///  0                   1                   2                   3
+///  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+/// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/// |                       Correlation ID                          |
+/// |                                                               |
+/// +---------------------------------------------------------------+
+/// |                        Token Length                           |
+/// +---------------------------------------------------------------+
+/// |                        Token Buffer                          ...
+///...                                                              |
+/// +---------------------------------------------------------------+
+/// ```
 #[repr(C, packed(4))]
 pub struct TerminateDriverDefn {
-    pub(in crate::command) correlated_message: CorrelatedMessageDefn,
-    pub(in crate::command) token_length: i32,
+    correlated_message: CorrelatedMessageDefn,
+    token_length: i32,
 }
 
 impl<A> Flyweight<A, TerminateDriverDefn>
