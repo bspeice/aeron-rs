@@ -2,7 +2,7 @@
 use crate::command::correlated_message::CorrelatedMessageDefn;
 use crate::command::flyweight::Flyweight;
 use crate::concurrent::AtomicBuffer;
-use crate::util::IndexT;
+use crate::util::{IndexT, Result};
 use std::mem::size_of;
 
 /// Raw command to terminate a driver. The `token_length` describes the length
@@ -41,58 +41,48 @@ where
         self
     }
 
-    /// Get the current length of the payload associated with this termination request.
+    /// Return the token buffer length
     pub fn token_length(&self) -> i32 {
         self.get_struct().token_length
     }
 
-    /// Set the payload length of this termination request.
-    ///
-    /// NOTE: While there are no safety issues, improperly setting this value can cause panics.
-    /// The `token_length` value is automatically set during calls to `put_token_buffer()`,
-    /// so this method is not likely to be frequently used.
-    pub fn put_token_length(&mut self, value: i32) -> &mut Self {
-        self.get_struct_mut().token_length = value;
-        self
-    }
-
     /// Return the current token payload associated with this termination request.
     pub fn token_buffer(&self) -> &[u8] {
-        // QUESTION: Should I be slicing the buffer to `token_length`?
-        // C++ doesn't do anything, so I'm going to assume not.
-        &self.bytes_at(size_of::<TerminateDriverDefn>() as IndexT)
+        // UNWRAP: Size check performed during initialization
+        &self
+            .bytes_at(size_of::<TerminateDriverDefn>() as IndexT)
+            .unwrap()[..self.get_struct().token_length as usize]
     }
 
     /// Append a payload to the termination request.
-    pub fn put_token_buffer(&mut self, token_buffer: &[u8]) -> &mut Self {
+    pub fn put_token_buffer(&mut self, token_buffer: &[u8]) -> Result<&mut Self> {
         let token_length = token_buffer.len() as i32;
-        self.get_struct_mut().token_length = token_length;
-
         if token_length > 0 {
-            // FIXME: Unwrap is unjustified here
-            // Currently just assume that people are going to be nice about the token buffer
-            // and not oversize it. C++ relies on throwing an exception if bounds are violated.
-            self.buffer
-                .put_slice(
-                    size_of::<TerminateDriverDefn>() as IndexT,
-                    &token_buffer,
-                    0,
-                    token_length,
-                )
-                .unwrap()
+            self.buffer.put_slice(
+                size_of::<TerminateDriverDefn>() as IndexT,
+                &token_buffer,
+                0,
+                token_length,
+            )?
         }
-        self
+        self.get_struct_mut().token_length = token_length;
+        Ok(self)
     }
 
     /// Get the total byte length of this termination command
     pub fn length(&self) -> IndexT {
-        size_of::<Self>() as IndexT + self.token_length()
+        size_of::<Self>() as IndexT + self.get_struct().token_length
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::command::correlated_message::CorrelatedMessageDefn;
+    use crate::command::flyweight::Flyweight;
     use crate::command::terminate_driver::TerminateDriverDefn;
+    use crate::concurrent::AtomicBuffer;
+    use crate::util::IndexT;
+
     use std::mem::size_of;
 
     #[test]
@@ -101,5 +91,35 @@ mod tests {
             size_of::<TerminateDriverDefn>(),
             size_of::<aeron_driver_sys::aeron_terminate_driver_command_stct>()
         )
+    }
+
+    #[test]
+    #[should_panic]
+    fn panic_on_invalid_length() {
+        // QUESTION: Should this failure condition be included in the docs?
+        let token_len = 1;
+
+        // Can trigger panic if `token_length` contains a bad value during initialization
+        let mut bytes = &mut [0u8; size_of::<TerminateDriverDefn>()][..];
+        // `token_length` stored immediately following the correlated message, this is
+        // how to calculate the offset
+        let token_length_offset = size_of::<CorrelatedMessageDefn>();
+
+        // When running inside a `should_panic` test, a failed test is one that returns at all
+        let put_result = bytes.put_i32(token_length_offset as IndexT, token_len);
+        if put_result.is_err() {
+            return;
+        }
+
+        let flyweight = Flyweight::new::<TerminateDriverDefn>(bytes, 0);
+        if flyweight.is_err() {
+            return;
+        }
+
+        let flyweight = flyweight.unwrap();
+        if flyweight.token_length() != token_len {
+            return;
+        }
+        flyweight.token_buffer();
     }
 }

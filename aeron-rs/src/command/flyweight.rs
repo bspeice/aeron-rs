@@ -14,7 +14,7 @@ where
     _phantom: PhantomData<S>,
 }
 
-/// Marker struct.
+/// Marker struct for an uninitialized `Flyweight` object
 // We can't put this `new` method in the fully generic implementation because
 // Rust gets confused as to what type `S` should be.
 pub struct Unchecked;
@@ -44,23 +44,19 @@ where
     A: AtomicBuffer,
     S: Sized,
 {
-    pub(crate) fn get_struct(&self) -> &S {
+    pub(in crate::command) fn get_struct(&self) -> &S {
         // UNWRAP: Bounds check performed during initialization
         self.buffer.overlay::<S>(self.base_offset).unwrap()
     }
 
-    pub(crate) fn get_struct_mut(&mut self) -> &mut S {
+    pub(in crate::command) fn get_struct_mut(&mut self) -> &mut S {
         // UNWRAP: Bounds check performed during initialization
         self.buffer.overlay_mut::<S>(self.base_offset).unwrap()
     }
 
-    pub(crate) fn bytes_at(&self, offset: IndexT) -> &[u8] {
+    pub(in crate::command) fn bytes_at(&self, offset: IndexT) -> Result<&[u8]> {
         let offset = (self.base_offset + offset) as usize;
-        // FIXME: Unwrap is unjustified here.
-        // C++ uses pointer arithmetic with no bounds checking, so I'm more comfortable
-        // with the Rust version at least panicking. Is the idea that we're safe because
-        // this is a crate-local (protected in C++) method?
-        self.buffer.bounds_check(offset as IndexT, 0).unwrap();
-        &self.buffer[offset..]
+        self.buffer.bounds_check(offset as IndexT, 0)?;
+        Ok(&self.buffer[offset..])
     }
 }

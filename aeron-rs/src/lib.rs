@@ -9,8 +9,8 @@ pub mod command;
 pub mod concurrent;
 pub mod context;
 pub mod control_protocol;
-pub mod media_driver;
 pub mod driver_proxy;
+pub mod media_driver;
 pub mod util;
 
 const fn sematic_version_compose(major: u8, minor: u8, patch: u8) -> i32 {

@@ -5,6 +5,7 @@ use crate::concurrent::ringbuffer::ManyToOneRingBuffer;
 use crate::concurrent::AtomicBuffer;
 use crate::control_protocol::ClientCommand;
 use crate::util::{AeronError, IndexT, Result};
+use std::mem::size_of;
 
 /// High-level interface for issuing commands to a media driver
 pub struct DriverProxy<A>
@@ -14,6 +15,8 @@ where
     to_driver: ManyToOneRingBuffer<A>,
     client_id: i64,
 }
+
+const COMMAND_BUFFER_SIZE: usize = 512;
 
 impl<A> DriverProxy<A>
 where
@@ -43,12 +46,19 @@ where
     /// that will be available to the driver.
     pub fn terminate_driver(&mut self, token_buffer: Option<&[u8]>) -> Result<()> {
         let client_id = self.client_id;
+        if token_buffer.is_some()
+            && token_buffer.unwrap().len()
+                > (COMMAND_BUFFER_SIZE - size_of::<TerminateDriverDefn>())
+        {
+            return Err(AeronError::InsufficientCapacity);
+        }
         self.write_command_to_driver(|buffer: &mut [u8], length: &mut IndexT| {
-            // UNWRAP: Buffer from `write_command` guaranteed to be long enough for `TerminateDriverDefn`
+            // UNWRAP: `TerminateDriverDefn` guaranteed to be smaller than `COMMAND_BUFFER_SIZE`
             let mut request = Flyweight::new::<TerminateDriverDefn>(buffer, 0).unwrap();
 
             request.put_client_id(client_id).put_correlation_id(-1);
-            token_buffer.map(|b| request.put_token_buffer(b));
+            // UNWRAP: Bounds check performed prior to attempting the write
+            token_buffer.map(|b| request.put_token_buffer(b).unwrap());
             *length = request.length();
 
             ClientCommand::TerminateDriver
@@ -61,7 +71,7 @@ where
     {
         // QUESTION: Can Rust align structs on stack?
         // C++ does some fancy shenanigans I assume help the CPU cache?
-        let mut buffer = &mut [0u8; 512][..];
+        let mut buffer = &mut [0u8; COMMAND_BUFFER_SIZE][..];
         let mut length = buffer.len() as IndexT;
         let msg_type_id = filler(&mut buffer, &mut length);
 
