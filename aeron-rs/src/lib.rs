@@ -9,7 +9,7 @@ pub mod command;
 pub mod concurrent;
 pub mod context;
 pub mod control_protocol;
-pub mod driver;
+pub mod media_driver;
 pub mod driver_proxy;
 pub mod util;
 

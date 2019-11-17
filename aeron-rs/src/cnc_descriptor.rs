@@ -78,7 +78,7 @@ pub const CNC_FILE: &str = "cnc.dat";
 #[cfg(test)]
 mod tests {
     use crate::cnc_descriptor::{MetaDataDefinition, CNC_FILE, CNC_VERSION};
-    use crate::driver::DriverContext;
+    use crate::media_driver::DriverContext;
     use memmap::MmapOptions;
     use std::fs::File;
     use tempfile::tempdir;

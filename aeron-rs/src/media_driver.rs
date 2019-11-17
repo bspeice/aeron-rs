@@ -165,7 +165,7 @@ impl<S> Drop for MediaDriver<S> {
 
 #[cfg(test)]
 mod tests {
-    use crate::driver::{DriverContext, DriverError};
+    use crate::media_driver::{DriverContext, DriverError};
     use std::ffi::CStr;
     use tempfile::tempdir;
 

@@ -1,6 +1,6 @@
 //! A version of the `aeronmd` runner program demonstrating the Rust wrappers
 //! around Media Driver functionality.
-use aeron_rs::driver::DriverContext;
+use aeron_rs::media_driver::DriverContext;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 static RUNNING: AtomicBool = AtomicBool::new(false);
