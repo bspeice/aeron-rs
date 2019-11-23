@@ -30,6 +30,8 @@ where
     where
         S: Sized,
     {
+        // QUESTION: Should we zero the first `sizeof::<S>()` bytes at `offset`?
+        // Would make sure that some of the length parameters can't trigger panics
         buffer.overlay::<S>(offset)?;
         Ok(Flyweight {
             buffer,

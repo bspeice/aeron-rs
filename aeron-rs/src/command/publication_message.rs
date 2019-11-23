@@ -1,12 +1,11 @@
-//! Flyweight implementation for command to add a subscription
-
+//! Flyweight implementation for command to add a publication
 use crate::command::correlated_message::CorrelatedMessageDefn;
 use crate::command::flyweight::Flyweight;
 use crate::concurrent::AtomicBuffer;
 use crate::util::{IndexT, Result};
 use std::mem::size_of;
 
-/// Control message for adding a subscription
+/// Control message for adding a publication
 ///
 /// ```text
 ///  0                   1                   2                   3
@@ -18,71 +17,53 @@ use std::mem::size_of;
 /// |                       Correlation ID                          |
 /// |                                                               |
 /// +---------------------------------------------------------------+
-/// |                 Registration Correlation ID                   |
-/// |                                                               |
+/// |                         Stream ID                             |
 /// +---------------------------------------------------------------+
-/// |                         Stream Id                             |
-/// +---------------------------------------------------------------+
-/// |                      Channel Length                           |
+/// |                       Channel Length                          |
 /// +---------------------------------------------------------------+
 /// |                          Channel                             ...
-/// ...                                                             |
+///...                                                              |
 /// +---------------------------------------------------------------+
 /// ```
 #[repr(C, packed(4))]
-pub struct SubscriptionMessageDefn {
+pub struct PublicationMessageDefn {
     correlated_message: CorrelatedMessageDefn,
-    registration_correlation_id: i64,
     stream_id: i32,
     channel_length: i32,
 }
 
 // Rust has no `offset_of` macro, so we'll just compute by hand
 const CHANNEL_LENGTH_OFFSET: IndexT =
-    (size_of::<CorrelatedMessageDefn>() + size_of::<i64>() + size_of::<i32>()) as IndexT;
+    (size_of::<CorrelatedMessageDefn>() + size_of::<i32>()) as IndexT;
 
-impl<A> Flyweight<A, SubscriptionMessageDefn>
+impl<A> Flyweight<A, PublicationMessageDefn>
 where
     A: AtomicBuffer,
 {
-    /// Retrieve the client identifier of this request.
+    /// Retrieve the client identifier associated with this message
     pub fn client_id(&self) -> i64 {
         self.get_struct().correlated_message.client_id
     }
 
-    /// Set the client identifier of this request.
+    /// Set the client identifier for this message
     pub fn put_client_id(&mut self, value: i64) -> &mut Self {
         self.get_struct_mut().correlated_message.client_id = value;
         self
     }
 
-    /// Retrieve the correlation identifier associated with this request. Used to
-    /// associate driver responses with a specific request.
+    /// Retrieve the correlation identifier associated with this message.
+    /// Will uniquely identify a command and response pair.
     pub fn correlation_id(&self) -> i64 {
         self.get_struct().correlated_message.correlation_id
     }
 
-    /// Set the correlation identifier to be used with this request.
+    /// Set the correlation identifier for this message
     pub fn put_correlation_id(&mut self, value: i64) -> &mut Self {
         self.get_struct_mut().correlated_message.correlation_id = value;
         self
     }
 
-    /// Retrieve the registration correlation identifier
-    // QUESTION: What is this ID used for? In the DriverProxy, it's always set to -1
-    pub fn registration_correlation_id(&self) -> i64 {
-        self.get_struct().registration_correlation_id
-    }
-
-    /// Set the registration correlation identifier of this request
-    pub fn put_registration_correlation_id(&mut self, value: i64) -> &mut Self {
-        self.get_struct_mut().registration_correlation_id = value;
-        self
-    }
-
-    /// Get the stream identifier associated with this request.
-    // QUESTION: What is the difference between stream ID and channel?
-    // Both are set in the `BasicSubscriber` example, not sure what they do.
+    /// Retrieve the stream identifier associated with this request
     pub fn stream_id(&self) -> i32 {
         self.get_struct().stream_id
     }
@@ -105,6 +86,6 @@ where
 
     /// Get the total byte length of this subscription command
     pub fn length(&self) -> IndexT {
-        size_of::<SubscriptionMessageDefn>() as IndexT + self.get_struct().channel_length
+        size_of::<PublicationMessageDefn>() as IndexT + self.get_struct().channel_length
     }
 }

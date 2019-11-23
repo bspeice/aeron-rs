@@ -1,13 +1,12 @@
 //! High level API for issuing commands to the Media Driver
 use crate::command::flyweight::Flyweight;
+use crate::command::subscription_message::SubscriptionMessageDefn;
 use crate::command::terminate_driver::TerminateDriverDefn;
 use crate::concurrent::ringbuffer::ManyToOneRingBuffer;
 use crate::concurrent::AtomicBuffer;
 use crate::control_protocol::ClientCommand;
 use crate::util::{AeronError, IndexT, Result};
 use std::mem::size_of;
-use crate::command::subscription_message::SubscriptionMessageDefn;
-use std::ops::Sub;
 
 /// High-level interface for issuing commands to a media driver
 pub struct DriverProxy<A>
@@ -48,14 +47,17 @@ where
     pub fn add_subscription(&mut self, channel: &str, stream_id: i32) -> Result<i64> {
         let correlation_id = self.to_driver.next_correlation_id();
         if channel.len() > (COMMAND_BUFFER_SIZE - size_of::<SubscriptionMessageDefn>()) {
-            return Err(AeronError::InsufficientCapacity)
+            return Err(AeronError::InsufficientCapacity);
         }
 
+        let client_id = self.client_id;
         self.write_command_to_driver(|buffer: &mut [u8], length: &mut IndexT| {
             // UNWRAP: `SubscriptionMessageDefn` guaranteed to be smaller than `COMMAND_BUFFER_SIZE`
-            let mut subscription_message = Flyweight::new::<SubscriptionMessageDefn>(buffer, 0).unwrap();
+            let mut subscription_message =
+                Flyweight::new::<SubscriptionMessageDefn>(buffer, 0).unwrap();
 
-            subscription_message.put_client_id(self.client_id)
+            subscription_message
+                .put_client_id(client_id)
                 .put_registration_correlation_id(-1)
                 .put_correlation_id(correlation_id)
                 .put_stream_id(stream_id);
@@ -64,7 +66,7 @@ where
 
             *length = subscription_message.length();
             ClientCommand::AddSubscription
-        });
+        })?;
 
         Ok(correlation_id)
     }
