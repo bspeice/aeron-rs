@@ -1,6 +1,6 @@
 [package]
 name = "aeron_driver-sys"
-version = "0.1.0+1.22.0"
+version = "0.1.0+1.24.0"
 authors = ["Bradlee Speice <bradlee@speice.io>"]
 edition = "2018"
 links = "aeron_driver"
