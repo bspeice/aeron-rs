@@ -65,9 +65,7 @@ pub fn main() {
     } else {
         &mut config
     };
-    let cmake_output = config
-        .build_target(link_type.target_name())
-        .build();
+    let cmake_output = config.build_target(link_type.target_name()).build();
 
     // Trying to figure out the final path is a bit weird;
     // For Linux/OSX, it's just build/lib
