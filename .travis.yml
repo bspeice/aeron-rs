@@ -21,7 +21,7 @@ script:
   - cargo test --release --no-run
   - cargo test --release
 
-  - cd aeron_driver-sys/
+  - cd aeron-driver-sys/
   - cargo test --features "static"
 
   - cd ..
