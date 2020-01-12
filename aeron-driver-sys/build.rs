@@ -59,7 +59,13 @@ pub fn main() {
         _ => (),
     };
 
-    let cmake_output = Config::new(&aeron_path)
+    let mut config = Config::new(&aeron_path);
+    let config = if cfg!(target_os = "windows") {
+        config.generator("MSYS Makefiles")
+    } else {
+        &mut config
+    };
+    let cmake_output = config
         .build_target(link_type.target_name())
         .build();
 
