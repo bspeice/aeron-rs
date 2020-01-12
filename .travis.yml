@@ -17,6 +17,9 @@ before_script:
   - 'echo $PATH'
 
 script:
+  - cargo clippy --all
+  - cargo fmt --all -- --check
+
   - cargo test --no-run
   - cargo test
   - cargo test --release --no-run
@@ -24,10 +27,6 @@ script:
 
   - cd aeron-driver-sys/
   - cargo test --features "static"
-
-  - cd ..
-  - cargo clippy --all
-  - cargo fmt --all -- --check
 
 branches:
   only:
