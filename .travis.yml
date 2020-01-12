@@ -14,8 +14,9 @@ before_script:
   - rustup update
   - rustup component add clippy
   - rustup component add rustfmt
-  - 'echo $PATH'
-  - 'which sh.exe'
+  # CMake doesn't like `sh.exe` being available on Windows,
+  # and since we don't use it elsewhere, just remove from PATH
+  - export PATH="${PATH/:\/bin/}"
 
 script:
   - cargo clippy --all
