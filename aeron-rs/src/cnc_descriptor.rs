@@ -103,7 +103,8 @@ mod tests {
                 .expect("Unable to memory map CnC file")
         };
 
-        let metadata: &MetaDataDefinition = unsafe { &*(mmap.as_ptr() as *const MetaDataDefinition) };
+        let metadata: &MetaDataDefinition =
+            unsafe { &*(mmap.as_ptr() as *const MetaDataDefinition) };
         assert_eq!(metadata.cnc_version, CNC_VERSION);
     }
 }
