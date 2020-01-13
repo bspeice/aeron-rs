@@ -190,12 +190,7 @@ mod tests {
         // cause an issue because the new media driver must wait for a heartbeat timeout.
         let driver_res = DriverContext::default().set_aeron_dir(&dir).build();
 
-        // TODO: Why is the error message behavior different on Windows?
-        let expected_message = if cfg!(target_os = "windows") {
-            String::new()
-        } else {
-            format!("could not recreate aeron dir {}: ", dir.display())
-        };
+        let expected_message = format!("could not recreate aeron dir {}: ", dir.display());
 
         assert!(driver_res.is_err());
         assert_eq!(
