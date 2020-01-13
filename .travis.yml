@@ -1,10 +1,13 @@
 language: rust
-rust:
-  - stable
-os:
-  - linux
-  - osx
-  - windows
+
+jobs:
+  include:
+  - rust: stable
+    os: linux
+  - rust: stable
+    os: osx
+  - rust: stable-msvc
+    os: windows
 
 cache:
   - cargo
@@ -13,9 +16,6 @@ before_script:
   - rustup show
   # CMake doesn't like the `sh.exe` provided by Git being in PATH
   - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then rm "C:/Program Files/Git/usr/bin/sh.exe"; fi
-  # MinGW doesn't implement the `poll` functions we need, so default to MSVC
-  # TODO: Attempt compilation with MSYS on Travis
-  - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then rustup default stable-x86_64-pc-windows-msvc; fi
   - rustup component add clippy
   - rustup component add rustfmt
 
