@@ -93,7 +93,7 @@ pub fn main() {
 
     println!("cargo:include={}", header_path.display());
     let bindings = bindgen::Builder::default()
-        .clang_arg(&format!("-I{}", header_path.display()))
+        .clang_arg(format!("-I{}", header_path.display()))
         .header("bindings.h")
         .whitelist_function("aeron_.*")
         .whitelist_type("aeron_.*")
