@@ -99,6 +99,9 @@ pub fn main() {
         .whitelist_type("aeron_.*")
         .whitelist_var("AERON_.*")
         .constified_enum_module("aeron_.*_enum")
+        // Some padding structures use arrays > 120 elements,
+        // so we can't derive Debug implementations
+        .derive_debug(false)
         .generate()
         .expect("Unable to generate aeron_driver bindings");
 

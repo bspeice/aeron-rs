@@ -10,23 +10,26 @@ cache:
   - cargo
 
 before_script:
-  - rustup set profile minimal
-  - rustup update
+  - rustup show
+  # CMake doesn't like the `sh.exe` provided by Git being in PATH
+  - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then rm "C:/Program Files/Git/usr/bin/sh.exe"; fi
+  # MinGW doesn't implement the `poll` functions we need, so default to MSVC
+  # TODO: Attempt compilation with MSYS on Travis
+  - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then rustup default stable-x86_64-pc-windows-msvc; fi
   - rustup component add clippy
   - rustup component add rustfmt
 
 script:
+  - cargo clippy --all
+  - cargo fmt --all -- --check
+
   - cargo test --no-run
   - cargo test
   - cargo test --release --no-run
   - cargo test --release
 
-  - cd aeron_driver-sys/
+  - cd aeron-driver-sys/
   - cargo test --features "static"
-
-  - cd ..
-  - cargo clippy --all
-  - cargo fmt --all -- --check
 
 branches:
   only:
