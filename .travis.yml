@@ -1,32 +1,37 @@
 language: rust
-rust:
-  - stable
-os:
-  - linux
-  - osx
-  - windows
+
+jobs:
+  include:
+  - rust: stable
+    os: linux
+  - rust: 1.34.0
+    os: linux
+  - rust: stable
+    os: osx
+  - rust: stable-msvc
+    os: windows
 
 cache:
   - cargo
 
 before_script:
-  - rustup set profile minimal
-  - rustup update
+  - rustup show
+  # CMake doesn't like the `sh.exe` provided by Git being in PATH
+  - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then rm "C:/Program Files/Git/usr/bin/sh.exe"; fi
   - rustup component add clippy
   - rustup component add rustfmt
 
 script:
+  - cargo clippy --all
+  - cargo fmt --all -- --check
+
   - cargo test --no-run
   - cargo test
   - cargo test --release --no-run
   - cargo test --release
 
-  - cd aeron_driver-sys/
+  - cd aeron-driver-sys/
   - cargo test --features "static"
-
-  - cd ..
-  - cargo clippy --all
-  - cargo fmt --all -- --check
 
 branches:
   only:

@@ -1,5 +1,5 @@
 [workspace]
 members = [
-    "aeron_driver-sys",
+    "aeron-driver-sys",
     "aeron-rs"
 ]

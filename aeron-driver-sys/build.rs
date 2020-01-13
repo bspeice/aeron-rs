@@ -93,12 +93,15 @@ pub fn main() {
 
     println!("cargo:include={}", header_path.display());
     let bindings = bindgen::Builder::default()
-        .clang_arg(&format!("-I{}", header_path.display()))
+        .clang_arg(format!("-I{}", header_path.display()))
         .header("bindings.h")
         .whitelist_function("aeron_.*")
         .whitelist_type("aeron_.*")
         .whitelist_var("AERON_.*")
         .constified_enum_module("aeron_.*_enum")
+        // Some padding structures use arrays > 120 elements,
+        // so we can't derive Debug implementations
+        .derive_debug(false)
         .generate()
         .expect("Unable to generate aeron_driver bindings");
 
