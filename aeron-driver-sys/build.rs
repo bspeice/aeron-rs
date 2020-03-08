@@ -47,17 +47,14 @@ pub fn main() {
         link_type.target_name()
     );
 
-    match link_type {
-        LinkType::Static => {
-            // On Windows, there are some extra libraries needed for static link
-            // that aren't included by Aeron.
-            if cfg!(target_os = "windows") {
-                println!("cargo:rustc-link-lib=shell32");
-                println!("cargo:rustc-link-lib=iphlpapi");
-            }
+    if let LinkType::Static = link_type {
+        // On Windows, there are some extra libraries needed for static link
+        // that aren't included by Aeron.
+        if cfg!(target_os = "windows") {
+            println!("cargo:rustc-link-lib=shell32");
+            println!("cargo:rustc-link-lib=iphlpapi");
         }
-        _ => (),
-    };
+    }
 
     let cmake_output = Config::new(&aeron_path)
         .build_target(link_type.target_name())
